@@ -1,0 +1,80 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>자료 옮기기 도구</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script><script src="../js/cloud-config.js"></script><script src="../js/pc-cloud.js"></script>
+<style>body{margin:0;background:#eef3ef;color:#1a2420;font-family:"Malgun Gothic",sans-serif}main{max-width:640px;margin:0 auto;padding:20px 16px}
+.card{background:#fff;border:1px solid #d6ded8;border-radius:12px;padding:16px;margin-bottom:14px}h1{font-size:21px}h2{font-size:17px;margin:0 0 6px}p{font-size:14px;line-height:1.6;color:#44514b;margin:6px 0}
+button{font:inherit;font-weight:700;padding:10px 16px;border:0;border-radius:8px;background:#2c6a4f;color:#fff;cursor:pointer}button:disabled{opacity:.5}
+pre{background:#f5f7f5;border-radius:8px;padding:10px;font-size:12px;white-space:pre-wrap;max-height:300px;overflow:auto}a{color:#2c6a4f}</style></head>
+<body><main><a href="../">← 목록</a><h1>자료 옮기기 도구 (PC 크롬·엣지)</h1>
+<div class="card"><h2>① PC 자료 → 클라우드 올리기</h2><p>바탕화면의 <b>클로드 프로그램 생성</b> 폴더를 고르면, 각 프로그램의 <b>데이터</b> 폴더(자료·사진·학습 기록)와 문서를 클라우드에 올립니다. 클라우드에 같은 파일이 있으면 PC 것으로 덮어씁니다.</p><button id="up">폴더 고르고 올리기</button></div>
+<div class="card"><h2>② 클라우드 → PC 백업 받기</h2><p>같은 폴더를 고르면 클라우드 자료를 각 프로그램의 <b>데이터</b> 폴더로 내려받습니다. (점검 도구로 점검할 때도 이걸 먼저 하세요) PC에 있던 같은 이름의 파일은 클라우드 것으로 바뀝니다.</p><button id="down">폴더 고르고 백업 받기</button></div>
+<pre id="log">로그인 확인 중…</pre></main>
+<script>
+const APPS = ["02_클레임 접수 프로그램","05_익산 판매동향 보고서","09_엽채 구매분석","10_참드레 입고검수","11_참드레 시세표","13_순천 판매동향 보고서","14_익산경매 수익률 계산기"];
+const DOCS = [];
+const logEl = document.getElementById('log');
+const log = (s) => { logEl.textContent += s + '\n'; logEl.scrollTop = 1e9; };
+const C = () => window.__pcCloud;
+async function walkLocal(dir, segs, out) {
+  for await (const [name, h] of dir.entries()) {
+    if (name.endsWith('.tmp~')) continue;
+    if (h.kind === 'directory') await walkLocal(h, segs.concat(name), out); else out.push({ path: segs.concat(name).join('/'), h });
+  }
+}
+async function walkCloud(segs, out) {
+  const r = await C().rpc('pc_list', { p_path: segs.join('/') });
+  for (const [name, kind] of r || []) { if (kind === 'directory') await walkCloud(segs.concat(name), out); else out.push(segs.concat(name)); }
+}
+async function pool(items, n, fn) { let i = 0, done = 0; await Promise.all(Array.from({ length: n }, async () => { while (i < items.length) { const it = items[i++]; await fn(it); done++; if (done % 20 === 0 || done === items.length) log(`  ${done}/${items.length}`); } })); }
+async function pickRoot(mode) {
+  const root = await window.showDirectoryPicker({ id: 'pccloud-tools', mode, startIn: 'desktop' });
+  let found = 0; for (const a of APPS) { try { await root.getDirectoryHandle(a); found++; } catch (e) {} }
+  if (!found) { alert("'" + root.name + "' 안에 프로그램 폴더가 없습니다. 바탕화면의 '클로드 프로그램 생성' 폴더를 골라 주세요."); return null; }
+  return root;
+}
+async function upload() {
+  const root = await pickRoot('read'); if (!root) return;
+  const files = [];
+  for (const a of APPS) {
+    try { const d = await (await root.getDirectoryHandle(a)).getDirectoryHandle('데이터'); const before = files.length; await walkLocal(d, [a], files); log(`${a}: 파일 ${files.length - before}개`); } catch (e) { log(`${a}: 데이터 폴더 없음 - 건너뜀`); }
+  }
+  for (const d of DOCS) { try { const h = await (await root.getDirectoryHandle(d.folder)).getFileHandle(d.file); files.push({ path: d.folder + '/문서.md', h }); log(`${d.folder}: 문서 1개`); } catch (e) { log(`${d.folder}: 문서 없음`); } }
+  if (!files.length) { log('올릴 파일이 없습니다.'); return; }
+  if (!confirm(`파일 ${files.length}개를 클라우드에 올립니다. 계속할까요?`)) return;
+  let fail = 0;
+  await pool(files, 4, async (f) => {
+    try { const u8 = new Uint8Array(await (await f.h.getFile()).arrayBuffer()); const t = C().TEXT.test(f.path);
+      await C().rpc('pc_write', { p_path: f.path, p_body: t ? new TextDecoder().decode(u8) : C().b64enc(u8), p_is_text: t, p_size: u8.length });
+    } catch (e) { fail++; log('실패: ' + f.path + ' - ' + e.message); }
+  });
+  log(fail ? `끝 (실패 ${fail}개)` : '✅ 올리기 완료');
+}
+async function download() {
+  const root = await pickRoot('readwrite'); if (!root) return;
+  const paths = [];
+  for (const a of APPS) { const b = paths.length; await walkCloud([a], paths); log(`${a}: 클라우드 파일 ${paths.length - b}개`); }
+  const docSet = new Set(DOCS.map((d) => d.folder + '/문서.md'));
+  const items = paths.filter((p) => !docSet.has(p.join('/')));
+  if (!items.length) { log('받을 파일이 없습니다.'); return; }
+  if (!confirm(`파일 ${items.length}개를 각 프로그램의 데이터 폴더로 받습니다. 계속할까요?`)) return;
+  let fail = 0;
+  await pool(items, 4, async (segs) => {
+    try {
+      const r = await C().rpc('pc_read', { p_path: segs.join('/'), p_head: false }); if (!r) return;
+      let d = await (await root.getDirectoryHandle(segs[0])).getDirectoryHandle('데이터', { create: true });
+      for (const s of segs.slice(1, -1)) d = await d.getDirectoryHandle(s, { create: true });
+      const w = await (await d.getFileHandle(segs[segs.length - 1], { create: true })).createWritable();
+      await w.write(r.is_text ? (r.body || '') : C().b64dec(r.body)); await w.close();
+    } catch (e) { fail++; log('실패: ' + segs.join('/') + ' - ' + e.message); }
+  });
+  log(fail ? `끝 (실패 ${fail}개)` : '✅ 백업 완료');
+}
+(async () => {
+  if (!C()) { logEl.textContent = '클라우드 연결 정보가 없습니다 (_pc\\cloud-config.js).'; return; }
+  await C().start(); logEl.textContent = '로그인됨. 위 버튼을 누르세요.\n';
+  if (!window.showDirectoryPicker) { log('⚠ 이 도구는 PC의 크롬·엣지에서만 됩니다.'); document.querySelectorAll('button').forEach((b) => (b.disabled = true)); return; }
+  const wrap = (fn) => async (ev) => { const b = ev.target; b.disabled = true; try { await fn(); } catch (e) { if (e.name !== 'AbortError') log('오류: ' + e.message); } b.disabled = false; };
+  document.getElementById('up').onclick = wrap(upload);
+  document.getElementById('down').onclick = wrap(download);
+})();
+</script></body></html>

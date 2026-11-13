@@ -1,0 +1,587 @@
+<!doctype html><html><head><meta charset=utf8><script>window.PC_APP="10_참드레 입고검수";</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script><script src="../js/cloud-config.js"></script><script src="../js/pc-cloud.js"></script><script src="../js/pc-runtime.js"></script><script src="../js/pc-learn.js"></script><link rel="manifest" href="../manifest.webmanifest"><meta name="theme-color" content="#2c6a4f"><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>참드레 입고검수</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* Layout: 하역장 전표판. 사무실은 조밀한 표, 현장은 장갑 낀 손으로도 누르는 큰 품목 줄과 하단 고정 완료 막대 */
+:root {
+  --bg: #eef1ec; --surface: #ffffff; --fg: #18251e; --muted: #56655c; --line: #cdd6cd;
+  --band: #20382c; --band-fg: #f4f7f1; --band-muted: #b6c8ba;
+  --accent: #c4501b; --accent-fg: #ffffff; --soft: #e3e9e1;
+  --ok: #17693f; --ok-bg: #dcefe2; --short: #b3261e; --short-bg: #fae3e0;
+  --over: #1b5c9e; --over-bg: #deebf8; --bad: #8a5a00; --bad-bg: #fbeecb;
+  --display: "Do Hyeon", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  --body: "IBM Plex Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121a15; --surface: #1a251f; --fg: #e8efe8; --muted: #a4b4a9; --line: #33453a;
+  --band: #0d1f16; --band-fg: #eef5ec; --band-muted: #a3b9a9;
+  --accent: #f08a50; --accent-fg: #26110a; --soft: #26342c;
+  --ok: #6fd39b; --ok-bg: #173526; --short: #f59a90; --short-bg: #42201d;
+  --over: #8fc1f4; --over-bg: #1a3148; --bad: #efc566; --bad-bg: #3b2f12; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #121a15; --surface: #1a251f; --fg: #e8efe8; --muted: #a4b4a9; --line: #33453a;
+  --band: #0d1f16; --band-fg: #eef5ec; --band-muted: #a3b9a9;
+  --accent: #f08a50; --accent-fg: #26110a; --soft: #26342c;
+  --ok: #6fd39b; --ok-bg: #173526; --short: #f59a90; --short-bg: #42201d;
+  --over: #8fc1f4; --over-bg: #1a3148; --bad: #efc566; --bad-bg: #3b2f12; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.5; padding-bottom: 110px; font-variant-numeric: tabular-nums }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--band) }
+button, input, select, textarea { font: inherit; color: inherit }
+button { cursor: pointer }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px }
+.wrap { max-width: 1100px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)) }
+header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 9; background: var(--band); color: var(--band-fg) }
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 20px; padding-block: 10px }
+.brand { font-family: var(--display); font-size: 24px; margin-right: auto }
+nav { display: flex; gap: 4px }
+nav a { color: var(--band-muted); text-decoration: none; padding: 10px 16px; font-weight: 700; border-radius: 6px }
+nav a[aria-current="page"] { background: var(--band-fg); color: var(--band) }
+main { padding-block: 22px; display: grid; gap: 22px }
+main > * { min-width: 0 }
+h1, h2 { font-family: var(--display); font-weight: 400; margin: 0; text-wrap: balance }
+h1 { font-size: 30px } h2 { font-size: 22px }
+.sub { color: var(--muted); margin: 2px 0 0 }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center }
+.between { justify-content: space-between }
+.btn { min-height: 46px; padding: 8px 16px; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; font-weight: 700 }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg) }
+.btn.quiet { background: transparent }
+.btn.danger { color: var(--short); border-color: var(--short) }
+.btn:disabled { opacity: .5; cursor: default }
+.field { display: grid; gap: 3px; font-size: 14px; color: var(--muted); font-weight: 500 }
+input, select, textarea { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; min-height: 44px; width: 100%; color: var(--fg) }
+.drop { display: grid; gap: 6px; place-items: center; text-align: center; padding: 34px 16px; border: 2px dashed var(--muted); border-radius: 8px; background: var(--surface); cursor: pointer }
+.drop.over { border-color: var(--accent); background: var(--soft) }
+.drop strong { font-family: var(--display); font-weight: 400; font-size: 22px }
+.drop small { color: var(--muted) }
+.drop input { position: absolute; width: 1px; height: 1px; opacity: 0; min-height: 0; padding: 0 }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 14px; min-width: 0 }
+.meta { display: grid; grid-template-columns: 170px 1fr 1fr; gap: 10px }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 16px; align-items: start }
+.split img { border: 1px solid var(--line); border-radius: 6px; width: 100% }
+.scroll { overflow-x: auto }
+table { border-collapse: collapse; width: 100% }
+th { text-align: left; font-size: 13px; color: var(--muted); font-weight: 500; white-space: nowrap }
+th, td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: middle }
+td.n, th.n { text-align: right }
+.draft td { padding: 4px } .draft input { min-width: 70px } .draft input.nm { min-width: 150px }
+.draft tr.uncertain input { background: var(--bad-bg) }
+.icon { width: 44px; min-height: 44px; border: 0; background: transparent; color: var(--muted); font-size: 20px }
+.note { padding: 10px 12px; border-radius: 6px; background: var(--bad-bg); color: var(--bad); font-weight: 500 }
+.note.err { background: var(--short-bg); color: var(--short) }
+.pill { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 13px; font-weight: 700; white-space: nowrap; background: var(--soft); color: var(--muted) }
+.s-ok { background: var(--ok-bg); color: var(--ok) } .s-short { background: var(--short-bg); color: var(--short) }
+.s-over { background: var(--over-bg); color: var(--over) } .s-bad { background: var(--bad-bg); color: var(--bad) }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px }
+.card { text-align: left; display: grid; gap: 8px; padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; width: 100% }
+.card b { font-family: var(--display); font-weight: 400; font-size: 24px; line-height: 1.2 }
+.bar { height: 8px; background: var(--soft); border-radius: 4px; overflow: hidden }
+.bar i { display: block; height: 100%; background: var(--ok) }
+.lines { display: grid; gap: 10px }
+.line { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: grid; gap: 12px }
+.line.st-ok { border-color: var(--ok) } .line.st-short { border-color: var(--short) } .line.st-over { border-color: var(--over) } .line.st-bad { border-color: var(--bad) }
+.lhead { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: start }
+.lname { font-family: var(--display); font-size: 26px; line-height: 1.2 }
+.ctrl { display: grid; grid-template-columns: auto 1fr 1fr; gap: 10px; align-items: stretch }
+.step { display: grid; grid-template-columns: 62px 96px 62px }
+.step button { min-height: 62px; font-size: 28px; font-weight: 700; background: var(--soft); border: 1px solid var(--line); border-radius: 6px 0 0 6px }
+.step button:last-child { border-radius: 0 6px 6px 0 }
+.step input { text-align: center; font-size: 26px; font-weight: 700; border-radius: 0; border-inline: 0; min-height: 62px; padding: 0 }
+.big { min-height: 62px; border-radius: 6px; font-size: 19px; font-weight: 700; border: 1px solid var(--line); background: var(--surface) }
+.big.go { background: var(--ok); border-color: var(--ok); color: var(--surface) }
+.big.on { background: var(--bad-bg); border-color: var(--bad); color: var(--bad) }
+.prob { display: grid; gap: 12px; padding-top: 12px; border-top: 1px solid var(--line) }
+.chips { display: flex; flex-wrap: wrap; gap: 8px }
+.chip { min-height: 50px; padding: 8px 18px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); font-weight: 700 }
+.chip[aria-pressed="true"] { background: var(--bad); border-color: var(--bad); color: var(--surface) }
+.pgrid { display: grid; grid-template-columns: 140px 1fr; gap: 10px }
+.thumbs { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.thumbs img { width: 72px; height: 72px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line) }
+.filebtn { display: inline-flex; align-items: center; min-height: 50px; padding: 8px 16px; border: 1px solid var(--line); border-radius: 6px; font-weight: 700; cursor: pointer; background: var(--surface) }
+.filebtn input { position: absolute; width: 1px; height: 1px; opacity: 0; min-height: 0; padding: 0 }
+.dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 8; background: var(--band); color: var(--band-fg); padding-bottom: env(safe-area-inset-bottom, 0px) }
+.dock .wrap { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding-block: 10px }
+.dock .count { font-family: var(--display); font-size: 22px; margin-right: auto }
+.dock .big { min-height: 56px; padding: 0 22px; background: var(--accent); border-color: var(--accent); color: var(--accent-fg) }
+.dock .big.alt { background: transparent; border-color: var(--band-muted); color: var(--band-fg); font-size: 16px }
+.stats { display: flex; flex-wrap: wrap; gap: 8px 36px }
+.stats div { display: grid } .stats b { font-family: var(--display); font-weight: 400; font-size: 34px; line-height: 1.1 }
+.stats span { color: var(--muted); font-size: 14px }
+.empty { padding: 34px 16px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 8px }
+#toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(90px + env(safe-area-inset-bottom, 0px)); z-index: 20; background: var(--fg); color: var(--bg); padding: 10px 18px; border-radius: 6px; font-weight: 500; max-width: calc(100vw - 32px) }
+@media (max-width: 720px) {
+  .meta, .split { grid-template-columns: minmax(0, 1fr) }
+  .ctrl { grid-template-columns: 1fr 1fr } .step { grid-column: 1 / -1; grid-template-columns: 1fr 1.4fr 1fr }
+  .pgrid { grid-template-columns: minmax(0, 1fr) }
+}
+</style>
+
+<header><div class="wrap top">
+  <div class="brand">참드레 입고검수</div>
+  <nav aria-label="화면">
+    <a href="#office" data-nav="office">입고 등록</a>
+    <a href="#inspect" data-nav="inspect">현장 검수</a>
+    <a href="#report" data-nav="report">검수 결과</a>
+  </nav>
+</div></header>
+<main class="wrap" id="app"></main>
+<div id="dock"></div>
+<div id="toast" hidden></div>
+
+<script>
+const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const num = v => { const n = parseFloat(String(v ?? '').replace(/,/g, '')); return isFinite(n) ? n : 0; };
+const fmt = n => { const v = Math.round(num(n) * 100) / 100; return v.toLocaleString('ko-KR'); };
+const REASONS = ['품질 불량', '파손·눌림', '규격 다름', '품목 다름', '신선도'];
+const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k) || ''; localStorage.setItem(k, v); } catch (e) { return ''; } };
+
+const S = {
+  view: 'inspect', ready: false, demo: false,
+  receipts: [], checks: {},
+  open: null, prob: null, finishing: false, adding: false,
+  date: today(), rdate: today(), onlyDiff: true,
+  draft: null, busy: '', err: '', confirmDel: null,
+  inspector: store('inspector')
+};
+let db = null, assets = null, sample = null, downloads = null, needsRender = false;
+const timers = {};
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 3500);
+}
+function saveFail(e) {
+  toast(e && e.code === 'not_granted' ? '이 계정은 저장 권한이 없습니다. 사장님 계정에서 수정 권한을 주세요.' : '저장하지 못했습니다. 인터넷 연결을 확인하고 다시 눌러 주세요.');
+}
+
+/* ---------- 저장소 ---------- */
+async function saveReceipt(r) {
+  const i = S.receipts.findIndex(x => x.id === r.id);
+  if (i >= 0) S.receipts[i] = r; else S.receipts.push(r);
+  if (db) { const { id, ...data } = r; try { await db.doc('receipts/' + id).set(data); } catch (e) { saveFail(e); } }
+}
+async function removeReceipt(id) {
+  S.receipts = S.receipts.filter(r => r.id !== id);
+  const ids = Object.keys(S.checks).filter(k => S.checks[k].receiptId === id);
+  ids.forEach(k => delete S.checks[k]);
+  if (db) try {
+    await db.doc('receipts/' + id).delete();
+    for (const k of ids) await db.doc('checks/' + k).delete();
+  } catch (e) { saveFail(e); }
+}
+function setCheck(r, l, patch, immediate) {
+  const id = r.id + '__' + l.id;
+  const base = S.checks[id] || { receiptId: r.id, lineId: l.id, qty: l.qty, reasons: [], badQty: 0, note: '', photos: [] };
+  const c = { ...base, ...patch, checkedAt: new Date().toISOString() };
+  S.checks[id] = c;
+  if (!db) return;
+  clearTimeout(timers[id]);
+  timers[id] = setTimeout(async () => {
+    try { await db.doc('checks/' + id).set(S.checks[id]); } catch (e) { saveFail(e); }
+    delete timers[id];
+  }, immediate ? 0 : 400);
+}
+function clearCheck(r, l) {
+  const id = r.id + '__' + l.id;
+  clearTimeout(timers[id]); delete timers[id]; delete S.checks[id];
+  if (db) db.doc('checks/' + id).delete().catch(saveFail);
+}
+function lineState(r, l) {
+  const c = S.checks[r.id + '__' + l.id];
+  if (!c) return { key: 'none', label: '미확인', cls: '', c: null, diff: 0 };
+  const diff = Math.round((num(c.qty) - num(l.qty)) * 100) / 100;
+  if (c.reasons && c.reasons.length) return { key: 'bad', label: '문제 있음', cls: 's-bad', c, diff };
+  if (diff < 0) return { key: 'short', label: '부족 ' + fmt(-diff), cls: 's-short', c, diff };
+  if (diff > 0) return { key: 'over', label: '초과 ' + fmt(diff), cls: 's-over', c, diff };
+  return { key: 'ok', label: '정상', cls: 's-ok', c, diff };
+}
+const progress = r => {
+  const st = r.items.map(l => lineState(r, l));
+  return { total: st.length, done: st.filter(s => s.key !== 'none').length, issues: st.filter(s => !['none','ok'].includes(s.key)).length };
+};
+const byDate = d => S.receipts.filter(r => r.date === d).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+
+/* ---------- 화면 ---------- */
+function render(force) {
+  const a = document.activeElement;
+  if (!force && a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.type !== 'file') { needsRender = true; return; }
+  needsRender = false;
+  document.querySelectorAll('[data-nav]').forEach(n => n.dataset.nav === S.view ? n.setAttribute('aria-current', 'page') : n.removeAttribute('aria-current'));
+  const app = document.getElementById('app');
+  const banner = S.demo ? '<div class="note">지금은 연습 화면입니다. 예시 자료만 보이고 입력한 내용은 저장되지 않습니다. 로그인한 계정으로 열면 저장됩니다.</div>' : '';
+  if (!S.ready) { app.innerHTML = '<div class="empty">입고 자료를 불러오는 중입니다.</div>'; document.getElementById('dock').innerHTML = ''; return; }
+  app.innerHTML = banner + (S.view === 'office' ? officeView() : S.view === 'report' ? reportView() : inspectView());
+  document.getElementById('dock').innerHTML = S.view === 'inspect' && S.open ? dockView() : '';
+}
+function officeView() {
+  const list = byDate(S.date);
+  return `
+  <div><h1>입고 등록</h1><p class="sub">내려오는 품목 파일이나 캡처를 올리면 현장 태블릿으로 바로 넘어갑니다.</p></div>
+  ${S.err ? `<div class="note err">${esc(S.err)}</div>` : ''}
+  ${S.draft ? draftView() : `
+  <label class="drop" id="drop">
+    <strong>${S.busy ? esc(S.busy) : '파일이나 캡처 올리기'}</strong>
+    <small>엑셀(.xlsx, .xls), CSV, 사진·캡처 이미지. 캡처는 Ctrl+V로 붙여넣어도 됩니다.</small>
+    <input id="upload" type="file" accept=".xlsx,.xls,.csv,image/*" ${S.busy ? 'disabled' : ''}>
+  </label>
+  <div class="row"><button class="btn" data-act="manual">직접 입력하기</button></div>`}
+  <section class="panel">
+    <div class="row between"><h2>등록된 입고 예정</h2>
+      <label class="field">입고일<input id="office-date" type="date" value="${esc(S.date)}" data-set="date"></label></div>
+    ${list.length ? `<div class="scroll"><table><thead><tr><th>매입처</th><th>메모</th><th class="n">품목</th><th>상태</th><th></th></tr></thead><tbody>
+    ${list.map(r => { const p = progress(r); return `<tr><td><b>${esc(r.supplier) || '매입처 없음'}</b></td><td>${esc(r.note)}</td><td class="n">${r.items.length}</td>
+      <td>${statusPill(r, p)}</td>
+      <td class="n">${S.confirmDel === r.id ? `<button class="btn danger" data-act="del" data-id="${r.id}">검수 기록까지 삭제</button> <button class="btn quiet" data-act="delno">취소</button>` : `<button class="btn quiet" data-act="delask" data-id="${r.id}">삭제</button>`}</td></tr>`; }).join('')}
+    </tbody></table></div>` : '<div class="empty">이 날짜에 등록된 입고가 없습니다. 위에서 파일을 올려 주세요.</div>'}
+  </section>`;
+}
+function statusPill(r, p) {
+  if (r.status === 'done') return `<span class="pill ${p.issues ? 's-short' : 's-ok'}">완료${p.issues ? ' · 차이 ' + p.issues : ''}</span>`;
+  if (p.done) return `<span class="pill s-bad">검수 중 ${p.done}/${p.total}</span>`;
+  return '<span class="pill">검수 대기</span>';
+}
+function draftView() {
+  const d = S.draft, unc = d.items.some(i => i.uncertain);
+  return `<section class="panel">
+    <div class="row between"><h2>내용 확인 후 보내기</h2><span class="sub">${esc(d.fileName || '직접 입력')}</span></div>
+    ${d.fromImage ? `<div class="note">이미지에서 읽은 내용입니다. 원본과 수량을 맞춰 본 뒤 보내 주세요.${unc ? ' 노란 줄은 글자가 흐려 특히 확인이 필요합니다.' : ''}</div>` : ''}
+    <div class="meta">
+      <label class="field">입고일<input id="d-date" type="date" data-draft="date" value="${esc(d.date)}"></label>
+      <label class="field">매입처<input id="d-supplier" data-draft="supplier" value="${esc(d.supplier)}" placeholder="예: 서울 구매팀"></label>
+      <label class="field">메모<input id="d-note" data-draft="note" value="${esc(d.note)}" placeholder="차량번호, 도착 시간"></label>
+    </div>
+    <div class="${d.preview ? 'split' : ''}">
+      <div class="scroll"><table class="draft"><thead><tr><th>품목</th><th>규격</th><th>단위</th><th>예정 수량</th><th></th></tr></thead><tbody>
+      ${d.items.map((it, i) => `<tr class="${it.uncertain ? 'uncertain' : ''}">
+        <td><input class="nm" id="i-${it.id}-n" aria-label="품목" data-item="${i}" data-k="name" value="${esc(it.name)}"></td>
+        <td><input id="i-${it.id}-s" aria-label="규격" data-item="${i}" data-k="spec" value="${esc(it.spec)}"></td>
+        <td><input id="i-${it.id}-u" aria-label="단위" data-item="${i}" data-k="unit" value="${esc(it.unit)}"></td>
+        <td><input id="i-${it.id}-q" aria-label="예정 수량" inputmode="decimal" data-item="${i}" data-k="qty" value="${esc(it.qty)}"></td>
+        <td><button class="icon" aria-label="줄 삭제" data-act="rmrow" data-i="${i}">×</button></td></tr>`).join('')}
+      </tbody></table></div>
+      ${d.preview ? `<img src="${d.preview}" alt="올린 원본">` : ''}
+    </div>
+    <div class="row between">
+      <button class="btn" data-act="addrow">줄 추가</button>
+      <div class="row"><button class="btn quiet" data-act="cancel">취소</button><button class="btn primary" data-act="send">현장 검수로 보내기</button></div>
+    </div></section>`;
+}
+function inspectView() {
+  if (S.open) { const r = S.receipts.find(x => x.id === S.open); if (r) return lineView(r); S.open = null; }
+  const list = byDate(S.date);
+  return `<div class="row between"><div><h1>현장 검수</h1><p class="sub">들어온 전표를 눌러 검수를 시작하세요.</p></div>
+    <label class="field">입고일<input id="ins-date" type="date" value="${esc(S.date)}" data-set="date"></label></div>
+    ${list.length ? `<div class="cards">${list.map(r => { const p = progress(r); return `
+    <button class="card" data-act="open" data-id="${r.id}">
+      <span class="row between"><b>${esc(r.supplier) || '매입처 없음'}</b>${statusPill(r, p)}</span>
+      <span class="sub">${esc(r.note) || '메모 없음'}</span>
+      <span>${p.done} / ${p.total} 품목 확인</span>
+      <span class="bar"><i style="width:${p.total ? p.done / p.total * 100 : 0}%"></i></span>
+    </button>`; }).join('')}</div>` : '<div class="empty">이 날짜에 검수할 입고가 없습니다. 사무실에서 등록하면 여기에 바로 나타납니다.</div>'}`;
+}
+function lineView(r) {
+  const locked = r.status === 'done';
+  return `<div class="row between"><div><h1>${esc(r.supplier) || '매입처 없음'}</h1><p class="sub">${esc(r.date)} ${esc(r.note)}</p></div>
+    <button class="btn" data-act="back">전표 목록</button></div>
+    ${locked ? `<div class="note">${esc(r.inspector)} 님이 검수를 마친 전표입니다. 고치려면 아래 '다시 열기'를 누르세요.</div>` : ''}
+    ${S.finishing && !locked ? finishPanel(r) : ''}
+    <div class="lines">${r.items.map(l => lineCard(r, l, locked)).join('')}</div>
+    ${locked ? '' : S.adding ? `<section class="panel"><h2>예정에 없던 품목</h2>
+      <div class="meta"><label class="field">품목<input id="x-name"></label><label class="field">단위<input id="x-unit" value="박스"></label><label class="field">실제 수량<input id="x-qty" inputmode="decimal"></label></div>
+      <div class="row"><button class="btn primary" data-act="addextra">추가</button><button class="btn quiet" data-act="addno">취소</button></div></section>`
+      : '<div class="row"><button class="btn" data-act="addask">예정에 없던 품목 추가</button></div>'}`;
+}
+function lineCard(r, l, locked) {
+  const s = lineState(r, l), c = s.c, open = S.prob === l.id && !locked;
+  const qty = c ? c.qty : l.qty, dis = locked ? 'disabled' : '';
+  return `<article class="line st-${s.key}">
+    <div class="lhead"><div><div class="lname">${esc(l.name)}${l.extra ? ' <span class="pill s-over">추가</span>' : ''}</div>
+      <div class="sub">${esc(l.spec)} · 예정 <b>${fmt(l.qty)}</b> ${esc(l.unit)}</div></div>
+      <span class="pill ${s.cls}">${esc(s.label)}</span></div>
+    ${locked ? `<div>실제 <b>${c ? fmt(c.qty) : '-'}</b> ${esc(l.unit)}${c && c.reasons && c.reasons.length ? ` · ${esc(c.reasons.join(', '))} · 불량 ${fmt(c.badQty)}` : ''}${c && c.note ? ` · ${esc(c.note)}` : ''}</div>` : `
+    <div class="ctrl">
+      <div class="step"><button aria-label="${esc(l.name)} 1 줄이기" data-act="dec" data-l="${l.id}" ${dis}>−</button>
+        <input id="q-${l.id}" aria-label="${esc(l.name)} 실제 수량" inputmode="decimal" data-qty="${l.id}" value="${fmt(qty).replace(/,/g,'')}" ${dis}>
+        <button aria-label="${esc(l.name)} 1 늘리기" data-act="inc" data-l="${l.id}" ${dis}>+</button></div>
+      <button class="big go" data-act="ok" data-l="${l.id}">예정대로 맞음</button>
+      <button class="big ${open || (c && c.reasons && c.reasons.length) ? 'on' : ''}" data-act="prob" data-l="${l.id}">문제 있음</button>
+    </div>`}
+    ${open ? `<div class="prob">
+      <div class="chips">${REASONS.map(x => `<button class="chip" aria-pressed="${!!(c && c.reasons && c.reasons.includes(x))}" data-act="reason" data-l="${l.id}" data-r="${esc(x)}">${esc(x)}</button>`).join('')}</div>
+      <div class="pgrid"><label class="field">불량 수량<input id="b-${l.id}" inputmode="decimal" data-bad="${l.id}" value="${c ? esc(c.badQty || '') : ''}"></label>
+      <label class="field">메모<input id="m-${l.id}" data-memo="${l.id}" value="${c ? esc(c.note || '') : ''}" placeholder="예: 겉잎 물러짐, 3박스 눌림"></label></div>
+    </div>` : ''}
+    ${(open || (c && c.photos && c.photos.length)) ? `<div class="thumbs">${((c && c.photos) || []).map(p => `<img src="/_blob/${esc(p)}" alt="${esc(l.name)} 현장 사진">`).join('')}
+      ${open && assets ? `<label class="filebtn">사진 찍기<input id="p-${l.id}" type="file" accept="image/*" capture="environment" data-photo="${l.id}"></label>` : ''}</div>` : ''}
+    ${c && !locked ? `<div><button class="btn quiet" data-act="undo" data-l="${l.id}">이 품목 확인 취소</button></div>` : ''}
+  </article>`;
+}
+function finishPanel(r) {
+  const rows = r.items.map(l => ({ l, s: lineState(r, l) })), diffs = rows.filter(x => !['ok'].includes(x.s.key));
+  return `<section class="panel"><h2>검수 마치기</h2>
+    ${diffs.length ? `<div class="scroll"><table><tbody>${diffs.map(x => `<tr><td>${esc(x.l.name)}</td><td class="n">예정 ${fmt(x.l.qty)} / 실제 ${x.s.c ? fmt(x.s.c.qty) : '-'}</td><td class="n"><span class="pill ${x.s.cls}">${esc(x.s.label)}</span></td></tr>`).join('')}</tbody></table></div>` : '<div class="note" style="background:var(--ok-bg);color:var(--ok)">모든 품목이 예정대로 들어왔습니다.</div>'}
+    <label class="field">검수자 이름<input id="inspector" data-set="inspector" value="${esc(S.inspector)}" placeholder="이름을 넣어 주세요"></label>
+    <div class="row"><button class="btn primary" data-act="finish">검수 완료 저장</button><button class="btn quiet" data-act="finishno">계속 검수</button></div>
+  </section>`;
+}
+function dockView() {
+  const r = S.receipts.find(x => x.id === S.open); if (!r) return '';
+  const p = progress(r);
+  if (r.status === 'done') return `<div class="dock"><div class="wrap"><span class="count">검수 완료 · 차이 ${p.issues}건</span><button class="big alt" data-act="reopen">다시 열기</button></div></div>`;
+  return `<div class="dock"><div class="wrap"><span class="count">${p.done} / ${p.total} 확인 · 차이 ${p.issues}건</span>
+    ${p.done < p.total ? '<button class="big alt" data-act="allok">남은 품목 모두 맞음</button>' : ''}
+    <button class="big" data-act="finishask">검수 마치기</button></div></div>`;
+}
+function reportRows(date) {
+  const out = [];
+  byDate(date).forEach(r => r.items.forEach(l => { const s = lineState(r, l); out.push({ r, l, s }); }));
+  return out;
+}
+function reportView() {
+  const all = reportRows(S.rdate), rec = byDate(S.rdate);
+  const done = rec.filter(r => r.status === 'done').length;
+  const issues = all.filter(x => !['ok','none'].includes(x.s.key));
+  const none = all.filter(x => x.s.key === 'none').length;
+  const rows = S.onlyDiff ? all.filter(x => x.s.key !== 'ok') : all;
+  return `<div class="row between"><div><h1>검수 결과</h1><p class="sub">예정과 다르게 들어온 품목을 매입처별로 확인합니다.</p></div>
+    <label class="field">입고일<input id="rep-date" type="date" value="${esc(S.rdate)}" data-set="rdate"></label></div>
+    <div class="stats"><div><b>${done} / ${rec.length}</b><span>검수 끝난 전표</span></div><div><b>${all.length}</b><span>전체 품목</span></div><div><b style="color:var(--short)">${issues.length}</b><span>차이·문제 품목</span></div><div><b>${none}</b><span>미확인 품목</span></div></div>
+    <section class="panel">
+      <div class="row between">
+        <div class="chips"><button class="chip" aria-pressed="${S.onlyDiff}" data-act="onlydiff">차이·미확인만</button><button class="chip" aria-pressed="${!S.onlyDiff}" data-act="showall">전체 보기</button></div>
+        ${downloads ? '<button class="btn" data-act="export">엑셀로 받기</button>' : ''}
+      </div>
+      ${rows.length ? `<div class="scroll"><table><thead><tr><th>매입처</th><th>품목</th><th>규격</th><th class="n">예정</th><th class="n">실제</th><th class="n">불량</th><th>결과</th><th>사유·메모</th><th>검수자</th></tr></thead><tbody>
+      ${rows.map(({ r, l, s }) => `<tr><td>${esc(r.supplier)}</td><td><b>${esc(l.name)}</b></td><td>${esc(l.spec)}</td><td class="n">${fmt(l.qty)}</td><td class="n">${s.c ? fmt(s.c.qty) : '-'}</td><td class="n">${s.c && s.c.badQty ? fmt(s.c.badQty) : ''}</td>
+        <td><span class="pill ${s.cls}">${esc(s.label)}</span></td>
+        <td>${s.c ? esc([...(s.c.reasons || []), s.c.note].filter(Boolean).join(', ')) : ''}${s.c && s.c.photos ? s.c.photos.map(p => ` <a href="/_blob/${esc(p)}" target="_blank" rel="noopener">사진</a>`).join('') : ''}</td><td>${esc(r.inspector)}</td></tr>`).join('')}
+      </tbody></table></div>` : `<div class="empty">${all.length ? '차이 난 품목이 없습니다.' : '이 날짜에 입고 기록이 없습니다.'}</div>`}
+    </section>`;
+}
+
+/* ---------- 파일 읽기 ---------- */
+const emptyItem = () => ({ id: uid(), name: '', spec: '', unit: '박스', qty: '' });
+function newDraft(extra) { return { date: S.date, supplier: '', note: '', items: [emptyItem()], ...extra }; }
+const NAME = /^(품목명?|품명|상품명?|제품명?|품종)/, QTY = /(입고\s*수량|입고량|발주\s*수량|주문\s*수량|출하\s*수량|수량|물량)/, SPEC = /규격|중량|크기|등급/, UNIT = /단위/, SUP = /매입처|출하처|거래처|공급처|출하자|산지/;
+function parseRows(rows) {
+  let h = -1, cols = {};
+  for (let i = 0; i < Math.min(rows.length, 25); i++) {
+    const c = {};
+    rows[i].forEach((v, j) => { const t = String(v ?? '').replace(/\s/g, '');
+      if (!t) return;
+      if (c.name === undefined && NAME.test(t)) c.name = j;
+      else if (c.qty === undefined && QTY.test(t)) c.qty = j;
+      else if (c.spec === undefined && SPEC.test(t)) c.spec = j;
+      else if (c.unit === undefined && UNIT.test(t)) c.unit = j;
+      else if (c.sup === undefined && SUP.test(t)) c.sup = j; });
+    if (c.name !== undefined && c.qty !== undefined) { h = i; cols = c; break; }
+  }
+  if (h < 0) return null;
+  const items = []; let supplier = '';
+  for (const row of rows.slice(h + 1)) {
+    const name = String(row[cols.name] ?? '').trim();
+    if (!name || /합계|소계|총계/.test(name)) continue;
+    const q = num(row[cols.qty]); if (!q) continue;
+    items.push({ id: uid(), name, spec: String(row[cols.spec] ?? '').trim(), unit: String(row[cols.unit] ?? '').trim() || '박스', qty: q });
+    if (!supplier && cols.sup !== undefined) supplier = String(row[cols.sup] ?? '').trim();
+  }
+  return items.length ? { items, supplier } : null;
+}
+const PROMPT = `농산물 입고 내역입니다. 품목별 입고 예정 정보를 뽑아 JSON만 답하세요.
+형식: {"supplier":"매입처 또는 빈 문자열","items":[{"name":"품목명","spec":"규격","unit":"단위","qty":숫자,"uncertain":false}]}
+규칙: 합계·소계 줄은 뺍니다. 없는 값을 지어내지 말고 빈 문자열로 둡니다. 단위가 없으면 "박스"로 합니다. 글자가 흐리거나 숫자가 확실하지 않은 줄은 uncertain을 true로 합니다. 품목이 하나도 안 보이면 items를 빈 배열로 합니다.`;
+function normalize(res) {
+  return (res && Array.isArray(res.items) ? res.items : []).filter(i => i && i.name).map(i => ({ id: uid(), name: String(i.name), spec: String(i.spec || ''), unit: String(i.unit || '박스'), qty: num(i.qty), uncertain: !!i.uncertain }));
+}
+async function shrink(file, max = 2000, q = .85) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = url; });
+    const k = Math.min(1, max / Math.max(img.width, img.height));
+    const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return { blob: await new Promise(ok => c.toBlob(ok, 'image/jpeg', q)), preview: c.toDataURL('image/jpeg', .7) };
+  } finally { URL.revokeObjectURL(url); }
+}
+async function handleFile(file) {
+  S.err = '';
+  if (/\.pdf$/i.test(file.name) || file.type === 'application/pdf') { S.err = 'PDF는 아직 바로 읽지 못합니다. 화면을 캡처해서 올려 주세요.'; return render(true); }
+  S.busy = '읽는 중입니다…'; render(true);
+  try {
+    if (file.type.startsWith('image/')) await fromImage(file); else await fromSheet(file);
+  } catch (e) {
+    S.err = e && e.message && e.friendly ? e.message : '파일을 읽지 못했습니다. 다른 파일로 올리거나 직접 입력해 주세요.';
+    if (e && e.code === 'not_granted') S.err = 'PC용에서는 캡처 사진을 읽을 수 없습니다. 엑셀로 올리거나 직접 입력해 주세요.';
+  }
+  S.busy = ''; render(true);
+}
+async function fromImage(file) {
+  const { blob, preview } = await shrink(file);
+  if (!sample) { S.draft = newDraft({ fileName: file.name, preview, fromImage: true }); S.err = '지금은 이미지 자동 읽기를 쓸 수 없습니다. 옆 원본을 보며 입력해 주세요.'; return; }
+  const res = await sample.json(PROMPT, { images: [blob], modelTier: 'default', cache: false });
+  const items = normalize(res);
+  let sourceAsset = '';
+  if (assets) try { sourceAsset = (await assets.upload(blob)).id; } catch (e) {}
+  S.draft = newDraft({ fileName: file.name || '캡처 이미지', preview, fromImage: true, sourceAsset, supplier: res.supplier || '', items: items.length ? items : [emptyItem()] });
+  if (!items.length) S.err = '이미지에서 품목을 찾지 못했습니다. 옆 원본을 보며 입력해 주세요.';
+}
+async function fromSheet(file) {
+  if (!window.XLSX) throw Object.assign(new Error('엑셀 읽기 기능을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.'), { friendly: true });
+  const buf = await file.arrayBuffer();
+  let wb;
+  if (/\.csv$/i.test(file.name)) {
+    let text; try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (e) { text = new TextDecoder('euc-kr').decode(buf); }
+    wb = XLSX.read(text, { type: 'string' });
+  } else wb = XLSX.read(buf, { type: 'array' });
+  let parsed = null, firstRows = null;
+  for (const n of wb.SheetNames) {
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, defval: '', raw: true });
+    firstRows = firstRows || rows;
+    parsed = parseRows(rows); if (parsed) break;
+  }
+  if (!parsed && sample && firstRows) {
+    const text = firstRows.slice(0, 300).map(r => r.join('\t')).join('\n');
+    const res = await sample.json(PROMPT + '\n\n내역:\n' + text, { modelTier: 'default', cache: false });
+    const items = normalize(res);
+    if (items.length) parsed = { items, supplier: res.supplier || '' };
+  }
+  if (!parsed) throw Object.assign(new Error('품목과 수량 칸을 찾지 못했습니다. 첫 줄에 "품목", "수량" 제목이 있는지 확인하거나 직접 입력해 주세요.'), { friendly: true });
+  S.draft = newDraft({ fileName: file.name, supplier: parsed.supplier, items: parsed.items });
+}
+
+/* ---------- 동작 ---------- */
+const openR = () => S.receipts.find(x => x.id === S.open);
+const lineOf = (r, id) => r.items.find(l => l.id === id);
+const actions = {
+  manual() { S.draft = newDraft({}); S.err = ''; },
+  cancel() { S.draft = null; S.err = ''; },
+  addrow() { S.draft.items.push(emptyItem()); },
+  rmrow(el) { S.draft.items.splice(+el.dataset.i, 1); if (!S.draft.items.length) S.draft.items.push(emptyItem()); },
+  send() {
+    const d = S.draft, items = d.items.filter(i => String(i.name).trim());
+    const bad = items.find(i => !(num(i.qty) > 0));
+    if (!items.length) { S.err = '품목을 한 줄 이상 넣어 주세요.'; return; }
+    if (bad) { S.err = `"${bad.name}"의 예정 수량을 넣어 주세요.`; return; }
+    const r = { id: uid(), date: d.date || today(), supplier: d.supplier.trim(), note: d.note.trim(), status: 'waiting', createdAt: new Date().toISOString(), inspector: '', sourceAsset: d.sourceAsset || '', sourceName: d.fileName || '',
+      items: items.map(i => ({ id: i.id, name: String(i.name).trim(), spec: String(i.spec || '').trim(), unit: String(i.unit || '').trim(), qty: num(i.qty) })) };
+    saveReceipt(r); S.date = r.date; S.draft = null; S.err = ''; toast('현장 검수로 보냈습니다.');
+  },
+  delask(el) { S.confirmDel = el.dataset.id; },
+  delno() { S.confirmDel = null; },
+  del(el) { removeReceipt(el.dataset.id); S.confirmDel = null; toast('삭제했습니다.'); },
+  open(el) { S.open = el.dataset.id; S.prob = null; S.finishing = false; S.adding = false; scrollTo(0, 0); },
+  back() { S.open = null; S.prob = null; S.finishing = false; },
+  ok(el) { const r = openR(), l = lineOf(r, el.dataset.l); setCheck(r, l, { qty: l.qty, reasons: [], badQty: 0 }, true); if (S.prob === l.id) S.prob = null; },
+  inc(el) { const r = openR(), l = lineOf(r, el.dataset.l), s = lineState(r, l); setCheck(r, l, { qty: Math.round(((s.c ? num(s.c.qty) : num(l.qty)) + 1) * 100) / 100 }); },
+  dec(el) { const r = openR(), l = lineOf(r, el.dataset.l), s = lineState(r, l); setCheck(r, l, { qty: Math.max(0, Math.round(((s.c ? num(s.c.qty) : num(l.qty)) - 1) * 100) / 100) }); },
+  prob(el) { S.prob = S.prob === el.dataset.l ? null : el.dataset.l; },
+  reason(el) { const r = openR(), l = lineOf(r, el.dataset.l), s = lineState(r, l), cur = (s.c && s.c.reasons) || [], x = el.dataset.r;
+    setCheck(r, l, { reasons: cur.includes(x) ? cur.filter(y => y !== x) : [...cur, x] }, true); },
+  undo(el) { const r = openR(); clearCheck(r, lineOf(r, el.dataset.l)); },
+  allok() { const r = openR(); r.items.forEach(l => { if (lineState(r, l).key === 'none') setCheck(r, l, { qty: l.qty, reasons: [], badQty: 0 }, true); }); },
+  finishask() { S.finishing = true; scrollTo(0, 0); },
+  finishno() { S.finishing = false; },
+  finish() {
+    const r = openR(), name = S.inspector.trim();
+    if (!name) { toast('검수자 이름을 넣어 주세요.'); return; }
+    store('inspector', name);
+    saveReceipt({ ...r, status: 'done', inspector: name, completedAt: new Date().toISOString() });
+    S.finishing = false; toast('검수 완료로 저장했습니다.');
+  },
+  reopen() { const r = openR(); saveReceipt({ ...r, status: 'waiting', completedAt: '' }); },
+  addask() { S.adding = true; },
+  addno() { S.adding = false; },
+  addextra() {
+    const r = openR(), name = document.getElementById('x-name').value.trim(), unit = document.getElementById('x-unit').value.trim(), qty = num(document.getElementById('x-qty').value);
+    if (!name) { toast('품목 이름을 넣어 주세요.'); return; }
+    const l = { id: uid(), name, spec: '', unit, qty: 0, extra: true };
+    saveReceipt({ ...r, items: [...r.items, l] });
+    setCheck(S.receipts.find(x => x.id === r.id), l, { qty }, true); S.adding = false;
+  },
+  onlydiff() { S.onlyDiff = true; },
+  showall() { S.onlyDiff = false; },
+  async export() {
+    if (!window.XLSX) { toast('엑셀 기능을 불러오지 못했습니다.'); return; }
+    const head = ['입고일','매입처','품목','규격','단위','예정','실제','차이','불량','결과','사유','메모','검수자'];
+    const rows = reportRows(S.rdate).map(({ r, l, s }) => [r.date, r.supplier, l.name, l.spec, l.unit, l.qty, s.c ? s.c.qty : '', s.c ? s.diff : '', s.c ? s.c.badQty || '' : '', s.label, s.c ? (s.c.reasons || []).join(', ') : '', s.c ? s.c.note || '' : '', r.inspector]);
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([head, ...rows]), '입고검수');
+    try { await downloads.save({ filename: `입고검수_${S.rdate}.xlsx`, data: new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' })) }); }
+    catch (e) { if (e.code !== 'declined') toast('파일을 저장하지 못했습니다.'); }
+  }
+};
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const fn = actions[el.dataset.act]; if (fn) { fn(el); render(true); }
+});
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t.dataset.draft) S.draft[t.dataset.draft] = t.value;
+  else if (t.dataset.item !== undefined) { S.draft.items[+t.dataset.item][t.dataset.k] = t.value; }
+  else if (t.dataset.set === 'inspector') S.inspector = t.value;
+});
+document.addEventListener('change', async e => {
+  const t = e.target;
+  if (t.id === 'upload' && t.files[0]) return handleFile(t.files[0]);
+  if (t.dataset.set === 'date' || t.dataset.set === 'rdate') { S[t.dataset.set] = t.value || today(); t.blur(); return render(true); }
+  const r = openR();
+  if (t.dataset.qty && r) { const l = lineOf(r, t.dataset.qty); setCheck(r, l, { qty: Math.max(0, num(t.value)) }, true); t.blur(); return render(true); }
+  if (t.dataset.bad && r) { setCheck(r, lineOf(r, t.dataset.bad), { badQty: num(t.value) }, true); return; }
+  if (t.dataset.memo && r) { setCheck(r, lineOf(r, t.dataset.memo), { note: t.value }, true); return; }
+  if (t.dataset.photo && r && t.files[0]) {
+    const l = lineOf(r, t.dataset.photo); toast('사진을 올리는 중입니다.');
+    try { const { blob } = await shrink(t.files[0], 1400, .8); const a = await assets.upload(blob); const s = lineState(r, l);
+      setCheck(r, l, { photos: [...((s.c && s.c.photos) || []), a.id] }, true); toast('사진을 저장했습니다.'); }
+    catch (err) { toast('사진을 올리지 못했습니다. 메모로 남겨 주세요.'); }
+    render(true);
+  }
+});
+document.addEventListener('focusout', () => setTimeout(() => { if (needsRender) render(); }, 50));
+document.addEventListener('paste', e => {
+  if (S.view !== 'office' || S.draft) return;
+  const f = [...(e.clipboardData?.files || [])].find(x => x.type.startsWith('image/'));
+  if (f) { e.preventDefault(); handleFile(f); }
+});
+document.addEventListener('dragover', e => { const d = e.target.closest && e.target.closest('#drop'); if (d) { e.preventDefault(); d.classList.add('over'); } });
+document.addEventListener('dragleave', e => { const d = e.target.closest && e.target.closest('#drop'); if (d) d.classList.remove('over'); });
+document.addEventListener('drop', e => { const d = e.target.closest && e.target.closest('#drop'); if (d) { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); } });
+
+function route() { const h = location.hash.slice(1); S.view = ['office', 'inspect', 'report'].includes(h) ? h : 'inspect'; S.open = null; render(true); }
+addEventListener('hashchange', route);
+
+function startDemo() {
+  S.demo = true; S.ready = true;
+  S.receipts = [{ id: 'ex1', date: today(), supplier: '예시 · 서울 구매팀', note: '예시 자료', status: 'waiting', createdAt: '1', inspector: '', items: [
+    { id: 'a', name: '대파', spec: '1단', unit: '단', qty: 120 }, { id: 'b', name: '쪽파', spec: '4kg', unit: '박스', qty: 30 },
+    { id: 'c', name: '깻잎', spec: '2kg', unit: '박스', qty: 40 }, { id: 'd', name: '청상추', spec: '4kg', unit: '박스', qty: 25 }] }];
+  S.checks = { ex1__a: { receiptId: 'ex1', lineId: 'a', qty: 120, reasons: [], badQty: 0, note: '', photos: [] }, ex1__b: { receiptId: 'ex1', lineId: 'b', qty: 28, reasons: [], badQty: 0, note: '', photos: [] } };
+  S.open = null; render();
+}
+async function boot() {
+  route();
+  const giveUp = 0;
+  try {
+    if (!window.claude) throw 0;
+    [db, assets, sample, downloads] = await Promise.all(['db', 'assets', 'sample', 'downloads'].map(n => claude.use(n).catch(() => null)));
+  } catch (e) {}
+  if (!db) { clearTimeout(giveUp); return startDemo(); }
+  let got = 0; const arrive = () => { if (++got >= 2) { clearTimeout(giveUp); S.ready = true; } };
+  let a = false, b = false;
+  db.collection('receipts').onSnapshot(q => {
+    S.receipts = q.docs.map(d => ({ id: d.id, ...d.data() })); if (!a) { a = true; arrive(); } render();
+  }, () => { clearTimeout(giveUp); if (!S.ready) startDemo(); });
+  db.collection('checks').onSnapshot(q => {
+    const next = {}; q.docs.forEach(d => { next[d.id] = d.data(); });
+    Object.keys(timers).forEach(k => { if (S.checks[k]) next[k] = S.checks[k]; });
+    S.checks = next; if (!b) { b = true; arrive(); } render();
+  }, () => { clearTimeout(giveUp); if (!S.ready) startDemo(); });
+}
+boot();
+</script>
+
+</body></html>
