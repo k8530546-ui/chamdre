@@ -10,7 +10,7 @@ pre{background:#f5f7f5;border-radius:8px;padding:10px;font-size:12px;white-space
 <div class="card"><h2>② 클라우드 → PC 백업 받기</h2><p>같은 폴더를 고르면 클라우드 자료를 각 프로그램의 <b>데이터</b> 폴더로 내려받습니다. (점검 도구로 점검할 때도 이걸 먼저 하세요) PC에 있던 같은 이름의 파일은 클라우드 것으로 바뀝니다.</p><button id="down">폴더 고르고 백업 받기</button></div>
 <pre id="log">로그인 확인 중…</pre></main>
 <script>
-const APPS = ["02_클레임 접수 프로그램","05_익산 판매동향 보고서","09_엽채 구매분석","10_참드레 입고검수","11_참드레 시세표","13_순천 판매동향 보고서","14_익산경매 수익률 계산기"];
+const APPS = ["01_가락시장 구매분석","02_클레임 접수 프로그램","05_익산 판매동향 보고서","09_엽채 구매분석","10_참드레 입고검수","11_참드레 시세표","13_순천 판매동향 보고서","14_익산경매 수익률 계산기"];
 const DOCS = [];
 const logEl = document.getElementById('log');
 const log = (s) => { logEl.textContent += s + '\n'; logEl.scrollTop = 1e9; };

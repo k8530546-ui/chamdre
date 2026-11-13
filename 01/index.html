@@ -1,0 +1,313 @@
+<!doctype html><html><head><meta charset=utf8><script>window.PC_APP="01_가락시장 구매분석";</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script><script src="../js/cloud-config.js"></script><script src="../js/pc-cloud.js"></script><script src="../js/pc-runtime.js"></script><script src="../js/pc-learn.js"></script><link rel="manifest" href="../manifest.webmanifest"><meta name="theme-color" content="#2c6a4f"><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>가락시장 구매분석</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: phone-first. Sticky header with date stepper → tab rail → one view. Crate-blue accent, crate-yellow for counts. */
+:root{
+  --bg:#f2f5f4; --surface:#ffffff; --surface-2:#e9eeec; --line:#d3dbd8; --fg:#15201c; --muted:#5a6964;
+  --accent:#1c5ea6; --accent-soft:#e3edf8; --accent-ink:#ffffff; --crate:#f2b705; --crate-ink:#2a2100;
+  --good:#1d7a48; --good-soft:#e2f3ea; --bad:#c03a29; --bad-soft:#fbe8e5; --warn:#9a6300; --warn-soft:#fbf0d9;
+  --display:"Do Hyeon","IBM Plex Sans KR",system-ui,sans-serif;
+  --body:"IBM Plex Sans KR",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e1413; --surface:#151d1b; --surface-2:#1c2624; --line:#2a3633; --fg:#e3eae7; --muted:#92a29d;
+  --accent:#6aa6e8; --accent-soft:#16283c; --accent-ink:#06121f; --crate:#f5c331; --crate-ink:#2a2100;
+  --good:#52c48a; --good-soft:#12291f; --bad:#ff7d68; --bad-soft:#2f1714; --warn:#e8ad3f; --warn-soft:#2c220e; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0e1413; --surface:#151d1b; --surface-2:#1c2624; --line:#2a3633; --fg:#e3eae7; --muted:#92a29d;
+  --accent:#6aa6e8; --accent-soft:#16283c; --accent-ink:#06121f; --crate:#f5c331; --crate-ink:#2a2100;
+  --good:#52c48a; --good-soft:#12291f; --bad:#ff7d68; --bad-soft:#2f1714; --warn:#e8ad3f; --warn-soft:#2c220e; color-scheme:dark;}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--surface)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;flex-direction:column;gap:8px;padding-block:10px 0}
+.brand{display:flex;align-items:center;gap:10px}
+.crate{width:30px;height:24px;border-radius:5px;background:var(--accent);position:relative;flex:none}
+.crate::before,.crate::after{content:"";position:absolute;left:5px;right:5px;height:3px;border-radius:2px;background:var(--accent-ink);opacity:.55}
+.crate::before{top:6px}.crate::after{top:13px}
+.brand h1{font-family:var(--display);font-weight:400;font-size:21px;margin:0;line-height:1}
+.brand small{display:block;color:var(--muted);font-size:11.5px;margin-top:2px}
+.datebar{display:flex;align-items:center;gap:6px}
+.datebar button{border:1px solid var(--line);background:var(--surface);border-radius:9px;width:38px;height:36px;cursor:pointer;color:var(--muted)}
+.datebar .d{flex:1;text-align:center;font-weight:600;font-size:15px}
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+.tabs a{padding:9px 12px 8px;text-decoration:none;color:var(--muted);font-weight:500;font-size:14px;border-bottom:2px solid transparent;white-space:nowrap}
+.tabs a[aria-current="page"]{color:var(--fg);border-bottom-color:var(--accent)}
+.tabs .count{font-family:var(--mono);font-size:11px;background:var(--crate);color:var(--crate-ink);border-radius:999px;padding:0 6px;margin-left:4px}
+main{padding-block:14px 48px;display:flex;flex-direction:column;gap:14px}
+.view{display:flex;flex-direction:column;gap:14px}
+.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden}
+.kpi{padding:11px 13px;min-width:0}
+.kpi:nth-child(2n){border-left:1px solid var(--line)}.kpi:nth-child(n+3){border-top:1px solid var(--line)}
+.kpi .lbl{font-size:12px;color:var(--muted)}
+.kpi .val{font-family:var(--display);font-size:25px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .val small{font-family:var(--body);font-size:12px;color:var(--muted);margin-left:2px}
+.kpi .foot{font-size:11.5px;color:var(--muted)}
+.filters{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.in{border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:9px 10px;min-width:0;width:100%;font-size:15px}
+.in:focus{border-color:var(--accent);outline:none}
+.sum{font-size:12.5px;color:var(--muted)}
+.sum b{color:var(--fg)}
+.vgroup{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.vhead{display:flex;justify-content:space-between;gap:8px;align-items:baseline;padding:10px 13px;background:var(--surface-2);border-bottom:1px solid var(--line);cursor:pointer}
+.vhead .n{font-weight:700}
+.vhead .w{font-size:11.5px;color:var(--muted);display:block;font-weight:400}
+.vhead .d{font-family:var(--mono);font-size:13px;white-space:nowrap}
+.ln{padding:10px 13px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px}
+.ln:last-child{border-bottom:0}
+.ln .it{font-weight:600}
+.ln .it span{font-weight:400;color:var(--muted);font-size:12.5px}
+.ln .pr{text-align:right;font-family:var(--mono);font-weight:600}
+.ln .q{grid-column:1;font-size:12px;color:var(--muted)}
+.ln .df{text-align:right;font-family:var(--mono);font-size:12.5px}
+.ln .mk{grid-column:1/-1;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;margin-top:4px}
+.ln .mk .nums{font-family:var(--mono);font-size:11.5px;color:var(--muted);white-space:nowrap}
+.ln .src{grid-column:1/-1;font-size:11px;color:var(--muted)}
+.chip{display:inline-flex;align-items:center;font-size:11.5px;font-weight:500;padding:1px 8px;border-radius:999px;white-space:nowrap;border:1px solid transparent}
+.chip.good{background:var(--good-soft);color:var(--good)}.chip.bad{background:var(--bad-soft);color:var(--bad)}.chip.warn{background:var(--warn-soft);color:var(--warn)}.chip.mute{background:var(--surface-2);color:var(--muted)}
+.chip.grade{border-color:var(--line);color:var(--fg);padding:0 6px;margin-left:4px}
+.up{color:var(--bad)}.down{color:var(--good)}
+.range{position:relative;height:16px}
+.range .track{position:absolute;top:7px;height:3px;border-radius:2px;background:var(--line)}
+.range .avgm{position:absolute;top:3px;width:2px;height:11px;background:var(--muted);transform:translateX(-1px)}
+.range .dot{position:absolute;top:3px;width:11px;height:11px;border-radius:50%;transform:translateX(-5.5px);border:2px solid var(--surface)}
+.range .dot.good{background:var(--good)}.range .dot.bad{background:var(--bad)}.range .dot.warn{background:var(--warn)}
+.empty{padding:26px 16px;text-align:center;color:var(--muted);font-size:13.5px;background:var(--surface);border:1px dashed var(--line);border-radius:12px}
+.empty b{color:var(--fg)}
+.alert{display:grid;grid-template-columns:4px minmax(0,1fr);gap:10px;padding:10px 13px;border-bottom:1px solid var(--line);background:var(--surface)}
+.alert:last-child{border-bottom:0}
+.alert .bar{border-radius:2px}.alert.bad .bar{background:var(--bad)}.alert.warn .bar{background:var(--warn)}.alert.info .bar{background:var(--accent)}
+.alert .t1{font-weight:600;font-size:13.5px}.alert .t2{color:var(--muted);font-size:12.5px}
+.box{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.mrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:9px 13px;border-bottom:1px solid var(--line);background:var(--surface)}
+.mrow:last-child{border-bottom:0}
+.mrow .a{font-weight:600}.mrow .a span{color:var(--muted);font-weight:400;font-size:12px}
+.mrow .b{font-family:var(--mono);text-align:right;font-weight:600}
+.mrow .c{font-size:11.5px;color:var(--muted)}.mrow .e{font-family:var(--mono);font-size:11.5px;color:var(--muted);text-align:right}
+.corpchips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.corpchips button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;white-space:nowrap}
+.corpchips button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.note{font-size:12px;color:var(--muted);line-height:1.6}
+.stale{border:1px solid color-mix(in srgb,var(--warn) 40%,var(--line));background:var(--warn-soft);border-radius:10px;padding:9px 12px;font-size:12.5px}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><div class="crate" aria-hidden="true"></div><div><h1>가락시장 구매분석</h1><small id="upd">자료 불러오는 중…</small></div></div>
+    <div class="datebar"><button id="dPrev" aria-label="전날">◀</button><div class="d" id="dLbl">–</div><button id="dNext" aria-label="다음날">▶</button></div>
+    <nav class="tabs" aria-label="화면">
+      <a href="#today" data-v="today">오늘 현황</a>
+      <a href="#market" data-v="market">청과별 시세</a>
+      <a href="#alerts" data-v="alerts">확인 필요<span class="count" id="alCount" hidden></span></a>
+    </nav>
+  </div>
+</header>
+<main class="wrap">
+  <div id="staleBox" class="stale" hidden></div>
+  <section class="view" id="v-today">
+    <div class="kpis" id="kpis"></div>
+    <div class="filters">
+      <select class="in" id="fVendor" aria-label="거래처"></select>
+      <input class="in" id="fQ" placeholder="품목 찾기" aria-label="품목 찾기" autocomplete="off">
+    </div>
+    <div class="sum" id="fSum"></div>
+    <div id="groups" style="display:flex;flex-direction:column;gap:12px"></div>
+    <p class="note">점은 매입가, 회색 눈금은 소속 청과 평균, 막대 양 끝은 최저·최고 경락가입니다. 평균은 거래량 가중, 그날 중앙값의 4배가 넘는 값은 뺐습니다.</p>
+  </section>
+  <section class="view" id="v-market" hidden>
+    <input class="in" id="mQ" placeholder="품목 이름 (예: 양파, 알배기, 청양)" aria-label="시세 품목 찾기" autocomplete="off">
+    <div class="corpchips" id="mCorps"></div>
+    <div id="mList"></div>
+  </section>
+  <section class="view" id="v-alerts" hidden>
+    <div class="box" id="alList"></div>
+  </section>
+</main>
+
+<script>
+(() => {
+'use strict';
+/* ---- 아래는 PC 프로그램(app.js)과 같은 계산 규칙 ---- */
+const CORPS = ["서울청과","중앙청과","동화청과","한국청과","대아청과","농협"];
+const VENDOR_SPEC_DEFAULTS = {"배성농산(주)":{"시금치":"4kg"}};
+function specDefaults(vendor){return {...(VENDOR_SPEC_DEFAULTS[vendor]||{}),...(vendorInfo(vendor)?.specs||{})};}
+function defaultSpec(vendor,item){const d=specDefaults(vendor);return d[normItem(item)]||d[baseItem(item)]||"";}
+// 거래처별 품목 청과 예외 (이 품목만 다른 청과 시세로 비교). 거래처 화면에서 고칠 수 있음.
+const VENDOR_ITEM_CORP = {"성우농산물주식회사":{"양배추":"대아청과"}};
+function itemCorps(vendor){return {...(VENDOR_ITEM_CORP[vendor]||{}),...(vendorInfo(vendor)?.itemCorps||{})};}
+function corpForLine(vendor,item){const m=itemCorps(vendor);const c=m[normItem(item)]||m[baseItem(item)];return c?corpOf(c):corpOf(vendorInfo(vendor)?.wholesaler);}
+// 소속 청과에 그 품목 시세가 없을 때 대신 볼 청과 (순서대로). 거래처 화면에서 고칠 수 있음.
+const VENDOR_FALLBACK_CORPS = {"배성농산(주)":["동화청과"]};
+function fallbackCorps(vendor){const v=vendorInfo(vendor);return (v&&Array.isArray(v.fallbackCorps)?v.fallbackCorps:VENDOR_FALLBACK_CORPS[vendor]||[]).map(corpOf).filter(Boolean);}
+const UNITS = ["상자","망","단","kg","개","봉","포","팩","판"];
+const DEFAULT_ALIASES = {"숌기":"새송이","깐쪽":"깐쪽파","세러리":"셀러리","브러커리":"브로콜리","브로커리":"브로콜리","알배추":"알배기","숙주":"숙주나물",
+  "앙송이":"양송이","간마늘":"깐마늘","느타리꽃":"꽃느타리","과리고추":"꽈리고추","깨순":"깻순","새송이솎기":"새송이(솎기)","적근":"적근대"};
+function todayStr(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function addDays(s,n){const [y,m,d]=s.split("-").map(Number);const t=new Date(y,m-1,d+n);return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0");}
+function dayDiff(a,b){const p=s=>{const [y,m,d]=s.split("-").map(Number);return Date.UTC(y,m-1,d);};return Math.round((p(a)-p(b))/864e5);}
+const WD="일월화수목금토";
+function prettyDate(s){if(!s)return"";const [y,m,d]=s.split("-").map(Number);return `${m}월 ${d}일 (${WD[new Date(y,m-1,d).getDay()]})`;}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function won(n){if(n==null||!isFinite(n))return"–";return Math.round(n).toLocaleString("ko-KR");}
+function man(n){if(!isFinite(n))return"–";const a=Math.abs(n);if(a>=1e8)return(n/1e8).toFixed(2).replace(/\.?0+$/,"")+"억";if(a>=1e4)return(n/1e4).toFixed(a>=1e6?0:1).replace(/\.0$/,"")+"만";return won(n);}
+function toNum(v){if(v==null||v==="")return null;const n=Number(String(v).replace(/[^0-9.\-]/g,""));return isFinite(n)?n:null;}
+function normUnit(u){const s=String(u||"").trim().toLowerCase().replace(/\s/g,"");
+  if(!s)return"";if(/^(상자|박스|box|bx|c\/t|ct|빡스|상|kg상자)$/.test(s))return"상자";if(/^(망|net|그물망)$/.test(s))return"망";if(/^(단|속)$/.test(s))return"단";
+  if(/^(kg|키로|킬로)$/.test(s))return"kg";if(/^(개|ea|입|통|포기|주)$/.test(s))return"개";if(/^(봉|봉지|pk)$/.test(s))return"봉";if(/^(포|포대|마대)$/.test(s))return"포";return String(u).trim();}
+function baseItem(s){return String(s||"").replace(/\(.*?\)/g,"").replace(/\s+/g,"").trim();}
+function normItem(s){let b=baseItem(s);if(S.aliases[b])b=baseItem(S.aliases[b]);return b;}
+function kgOf(spec){const m=String(spec||"").match(/(\d+(?:\.\d+)?)\s*(kg|키로|k)(?![a-z])/i);return m?Number(m[1]):null;}
+function specNorm(spec){const kg=kgOf(spec);if(kg!=null)return kg+"kg";return String(spec||"").replace(/\s+/g,"").trim();}
+function lineKey(l){return [normItem(l.item),specNorm(l.spec),normUnit(l.unit)].join("|");}
+function keyLabel(k){const [i,s,u]=k.split("|");return i+(s?" "+s:"")+(u?" · "+u:"");}
+function vendorInfo(name){return S.vendors.find(v=>v.name===name)||null;}
+function corpOf(name){const s=String(name||"").replace(/\s/g,"");if(!s)return"";for(const c of CORPS){if(c!=="농협"&&s.includes(c))return c;}if(/농협|공판장/.test(s))return"농협";return s.replace(/\(주\)|주식회사|\(유\)/g,"");}
+function shortV(n){return String(n).replace(/\(주\)|\(유\)|주식회사|\(주식회사\)|농산물|\s/g,"");}
+
+/* item matching against garak rows — 청과마다 품목/품종 표기가 달라서 여러 규칙으로 맞춤 */
+const DISTINCT=["알배기","얼갈이","봄동","쌈","열무","알타리","총각","적채","빨간","깐","방울","미니","무순","수입","청경","꽈리","오이맛","청양","홍","통로메인","적양파","적상추","적근대","적겨자","순","꼬마","돌산","쪽"];
+function nameScore(it,row,allow){if(!it)return 0;const pm=baseItem(row.item);const raw=String(row.variety||"").replace(/\s/g,"");const pj=baseItem(raw);const par=(raw.match(/\((.*?)\)/)||[])[1]||"";
+  const toks=[pj,par].filter(Boolean);const ok=it+(allow||"");if(DISTINCT.some(w=>(pm+raw).includes(w)&&!ok.includes(w)))return 0;
+  if(toks.includes(it))return 5;
+  if(it.length>=2&&toks.some(t=>t.length>it.length&&(t.startsWith(it)||t.endsWith(it))&&t.length-it.length<=2))return 4;
+  for(const t of toks){if(t.length>=2&&it.includes(t)){const rest=it.replace(t,"");if(!rest||pm.includes(rest)||rest.includes(pm))return 4;}}
+  if(it===pm)return 3;
+  return 0;}
+function unitOk(u,row){if(["단","개","봉","속","판"].includes(u))return String(row.unit||"").includes(u)||String(row.pkg||"").includes(u);
+  return row.wt!=null&&/kg/i.test(row.unit||"");}
+const _gc=new Map();
+function garakRowsFor(corp,date,it,u,allow){const k=[corp,date,it,u,allow].join("|");if(_gc.has(k))return _gc.get(k);
+  const doc=S.garak[date];let out=[];if(doc&&doc.rows){let best=0;const c=[];for(const r of doc.rows){if(corp&&r.corp!==corp)continue;const s=nameScore(it,r,allow);if(!s||!unitOk(u,r))continue;if(s>best){best=s;c.length=0;}if(s===best)c.push(r);}out=c;}
+  _gc.set(k,out);return out;}
+function combine(rows){let mn=Infinity,mx=-Infinity,sum=0,q=0,n=0;for(const r of rows){mn=Math.min(mn,r.min);mx=Math.max(mx,r.max);sum+=r.avg*r.qty;q+=r.qty;n+=r.n;}return q?{min:mn,max:mx,avg:Math.round(sum/q),qty:q,n}:null;}
+function wtLabel(r){return (r.wt?(+r.wt)+(r.unit||""):"")+(r.pkg?" "+r.pkg:"");}
+// returns {corp,date,min,max,avg,qty,n,spec,grade,guessed} or {missing:reason}
+function garakFor(l,corpOverride){if(corpOverride!==undefined)return garakCore(l,corpOverride,true);
+  const corp=corpForLine(l.vendor,l.item);if(!corp)return{missing:"청과 미지정"};
+  const g=garakCore(l,corp,false);if(!g.missing||g.missing==="시세 없음")return g;
+  const tried=[corp];for(const fc of fallbackCorps(l.vendor)){if(tried.includes(fc))continue;tried.push(fc);const g2=garakCore(l,fc,false);if(!g2.missing)return{...g2,fallback:true,primary:corp};}
+  if(/에 없음$/.test(g.missing)){const any=garakCore(l,"",true);if(any.missing&&/에 없음$|품목 없음/.test(any.missing))return{...g,missing:"그날 가락시장 거래 없음"};}
+  return tried.length>1?{...g,missing:tried.join("·")+(/에 없음$/.test(g.missing)?"에 없음":" — "+g.missing)}:g;}
+function garakCore(l,corp,any){
+  let date=null;for(let i=0;i<=3;i++){const d=addDays(l.date,-i);if(S.garak[d]&&S.garak[d].rows){date=d;break;}}if(!date)return{missing:"시세 없음"};
+  const it=normItem(l.item),u=normUnit(l.unit);let rows=garakRowsFor(corp,date,it,u,/수입/.test(l.spec||"")?"수입":"");if(!rows.length)return{missing:corp?corp+"에 없음":"품목 없음",date};
+  let kg=kgOf(l.spec),kgDefault=false;if(kg==null){const ds=defaultSpec(l.vendor,l.item);if(kgOf(ds)!=null){kg=kgOf(ds);kgDefault=true;}}let guessed=false;
+  // weight / packaging group
+  const groups={};rows.forEach(r=>{const g=wtLabel(r);(groups[g]=groups[g]||[]).push(r);});
+  let gkey=null;if(kg!=null){gkey=Object.keys(groups).find(g=>{const r=groups[g][0];return r.wt&&Number(r.wt)===kg&&/kg/i.test(r.unit);});if(!gkey)return{missing:`${kg}kg 시세 없음`,date};}
+  if(!gkey){gkey=Object.keys(groups).sort((a,b)=>groups[b].reduce((s,r)=>s+r.qty,0)-groups[a].reduce((s,r)=>s+r.qty,0))[0];guessed=Object.keys(groups).length>1;}
+  rows=groups[gkey];
+  let grade="전체 등급";if(l.grade){const g=String(l.grade).trim();const gr=rows.filter(r=>r.grade&&(r.grade===g||r.grade.includes(g)||g.includes(r.grade)));if(gr.length&&gr.length<rows.length){rows=gr;grade=g;}else if(!gr.length)grade="등급 없음→전체";}
+  let c=combine(rows);if(!c)return{missing:"시세 없음",date};
+  if(u==="kg"){const w=Number(rows[0].wt)||1;c={...c,min:Math.round(c.min/w),max:Math.round(c.max/w),avg:Math.round(c.avg/w)};gkey=gkey.trim()+" → kg당";}
+  return{...c,corp:corp||"가락 전체",date,spec:gkey.trim()+(kgDefault?" (거래처 기본 규격)":""),grade,guessed,variety:[...new Set(rows.map(r=>r.variety).filter(Boolean))].slice(0,3).join("·")};}
+function verdict(price,g){if(!g||g.missing)return null;if(price<=g.min)return["good","최저가 이하"];if(price<=g.avg)return["good","평균 이하"];if(price<=g.max)return["warn","평균 이상"];return["bad","최고가 초과"];}
+
+function prevPrice(l,lines){let best=null;for(const o of lines){if(o.key!==l.key||o.date>=l.date)continue;if(dayDiff(l.date,o.date)>21)continue;if(!best||o.date>best.date)best=o;}return best;}
+function computeAlerts(date,lines){const day=lines.filter(l=>l.date===date);const A=[];
+  for(const l of day){const g=garakFor(l);if(g&&!g.missing&&l.price>g.max){A.push({sev:"bad",t1:`${l.item} ${l.spec||""} — ${g.corp} 최고가보다 비쌈`,t2:`${l.vendor} ${won(l.price)}원 · ${g.corp} 최저 ${won(g.min)} / 평균 ${won(g.avg)} / 최고 ${won(g.max)}원 (${g.spec}, ${g.grade})`});}
+    else if(g&&!g.missing&&l.price>g.avg*1.1){A.push({sev:"warn",t1:`${l.item} ${l.spec||""} — ${g.corp} 평균보다 ${((l.price/g.avg-1)*100).toFixed(0)}% 비쌈`,t2:`${l.vendor} ${won(l.price)}원 · 평균 ${won(g.avg)}원 (${g.spec}, ${g.grade})`});}
+    const pv=prevPrice(l,lines);if(pv&&pv.price>0){const ch=(l.price/pv.price-1)*100;if(ch>=15)A.push({sev:ch>=30?"bad":"warn",t1:`${l.item} ${l.spec||""} — 직전보다 ${ch.toFixed(0)}% 오름`,t2:`${l.vendor} ${won(l.price)}원 · 직전 ${pv.date.slice(5)} ${pv.vendor} ${won(pv.price)}원`});}}
+  const byKey={};for(const l of day){(byKey[l.key]=byKey[l.key]||[]).push(l);}
+  for(const k in byKey){const g=byKey[k];const vs=new Set(g.map(x=>x.vendor));if(vs.size<2)continue;const mn=Math.min(...g.map(x=>x.price)),mx=Math.max(...g.map(x=>x.price));
+    if(mn>0&&mx/mn>=1.1){const lo=g.find(x=>x.price===mn),hi=g.find(x=>x.price===mx);A.push({sev:"info",t1:`${keyLabel(k)} — 거래처 간 ${((mx/mn-1)*100).toFixed(0)}% 차이`,t2:`${lo.vendor} ${won(mn)}원 vs ${hi.vendor} ${won(mx)}원`});}}
+  for(const inv of S.invoices){if(inv.date!==date)continue;const t=toNum(inv.total);if(t){const s=(inv.lines||[]).reduce((a,l)=>a+(toNum(l.qty)||0)*(toNum(l.price)||0),0);if(Math.abs(s-t)>Math.max(100,t*0.005))A.push({sev:"warn",t1:`${inv.vendor} — 명세서 합계와 품목 합이 다름`,t2:`명세서 ${won(t)}원 · 품목 합 ${won(s)}원`});}}
+  const order={bad:0,warn:1,info:2};A.sort((a,b)=>order[a.sev]-order[b.sev]);return A;}
+
+/* ---------- phone page state ---------- */
+const S={aliases:{...DEFAULT_ALIASES},vendors:[],invoices:[],garak:{},meta:null,date:null,dates:[],view:"today",fV:"",fQ:"",mCorp:"전체",open:{}};
+const $=s=>document.querySelector(s);
+function allLines(){const out=[];for(const inv of S.invoices){(inv.lines||[]).forEach((l,i)=>{const qty=toNum(l.qty)||0,price=toNum(l.price)||0;out.push({...l,qty,price,amount:qty*price,unit:normUnit(l.unit),idx:i,date:inv.date,vendor:inv.vendor,key:lineKey(l)});});}return out;}
+function rangeBar(price,g){let lo=Math.min(g.min,price),hi=Math.max(g.max,price);if(hi===lo){lo*=0.95;hi*=1.05;}const P=v=>((v-lo)/(hi-lo)*100).toFixed(1)+"%";const v=verdict(price,g);
+  return `<div class="range"><div class="track" style="left:${P(g.min)};right:calc(100% - ${P(g.max)})"></div><div class="avgm" style="left:${P(g.avg)}"></div><div class="dot ${v[0]}" style="left:${P(price)}"></div></div>`;}
+function lineMatchQ(l,q){if(!q)return true;const t=baseItem(q);return [l.item,normItem(l.item),l.spec,l.grade].join(" ").replace(/\s/g,"").includes(t);}
+
+/* ---------- data ---------- */
+const COLS=["corp","item","variety","wt","unit","grade","min","max","avg","qty","n"];
+function ingest(){_gc.clear();S.invoices=[];for(const d of Object.values(S.days||{}))for(const inv of d.invoices||[])S.invoices.push({vendor:inv.vendor,date:d.date,source:inv.source,lines:(inv.lines||[]).map(a=>({item:a[0],spec:a[1],unit:a[2],grade:a[3],qty:a[4],price:a[5],dest:a[6]}))});
+  S.dates=[...new Set(S.invoices.map(i=>i.date))].sort();if(!S.date||!S.dates.includes(S.date))S.date=S.dates.at(-1)||null;}
+function setGarak(doc){S.garak[doc.date]={date:doc.date,fetchedAt:doc.fetchedAt,records:doc.records,rows:(doc.rows||[]).map(a=>Object.fromEntries(COLS.map((c,i)=>[c,a[i]])))};_gc.clear();}
+
+async function boot(){render();
+  const C=window.claude;const db=C&&C.use?await C.use("db").catch(()=>null):null;
+  if(!db){$("#upd").textContent="이 화면에서는 저장된 자료를 열 수 없습니다. claude.ai에서 열어 주세요.";$("#groups").innerHTML=`<div class="empty">claude.ai(앱 또는 웹)에 로그인한 상태로 이 페이지를 열어 주세요.</div>`;return;}
+  const timer=setTimeout(()=>{if(!S.meta){$("#upd").textContent="자료 저장소 응답이 늦습니다…";}},10000);
+  S.days={};
+  db.doc("meta/main").onSnapshot(s=>{clearTimeout(timer);if(s.exists){const m=s.data();S.meta=m;S.vendors=m.vendors||[];S.aliases={...DEFAULT_ALIASES,...(m.aliases||{})};}else S.meta={empty:true};ingest();render();},e=>{clearTimeout(timer);$("#upd").textContent="자료를 불러오지 못했습니다.";});
+  db.collection("days").orderBy("date","desc").limit(20).onSnapshot(snap=>{S.days={};snap.docs.forEach(d=>{const b=d.data();S.days[b.date]=b;});ingest();render();},e=>console.error(e));
+  db.collection("garak").orderBy("date","desc").limit(30).onSnapshot(snap=>{snap.docs.forEach(d=>setGarak(d.data()));render();},e=>console.error(e));}
+
+/* ---------- render ---------- */
+function route(){const h=(location.hash||"").replace("#","");S.view=["today","market","alerts"].includes(h)?h:"today";
+  ["today","market","alerts"].forEach(v=>$("#v-"+v).hidden=v!==S.view);document.querySelectorAll(".tabs a").forEach(a=>{if(a.dataset.v===S.view)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");});render();}
+window.addEventListener("hashchange",route);
+$("#dPrev").onclick=()=>{const i=S.dates.indexOf(S.date);if(i>0){S.date=S.dates[i-1];render();}};
+$("#dNext").onclick=()=>{const i=S.dates.indexOf(S.date);if(i>=0&&i<S.dates.length-1){S.date=S.dates[i+1];render();}};
+$("#fVendor").onchange=e=>{S.fV=e.target.value;renderToday();};
+$("#fQ").oninput=e=>{S.fQ=e.target.value;renderToday();};
+$("#mQ").oninput=()=>renderMarket();
+
+function render(){const m=S.meta;
+  if(m&&m.updatedAt){const t=new Date(m.updatedAt);const age=(Date.now()-t)/36e5;$("#upd").textContent=`PC에서 ${t.toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}에 올린 자료`;
+    const sb=$("#staleBox");sb.hidden=age<8;sb.textContent=age>=8?`마지막으로 올린 지 ${Math.floor(age)}시간이 지났습니다. 회사 PC가 꺼져 있거나 Claude 앱이 닫혀 있으면 새 자료가 올라오지 않습니다.`:"";}
+  else if(m&&m.empty)$("#upd").textContent="아직 올린 자료가 없습니다";
+  $("#dLbl").textContent=S.date?prettyDate(S.date):"–";$("#dPrev").disabled=!S.date||S.dates.indexOf(S.date)<=0;$("#dNext").disabled=!S.date||S.dates.indexOf(S.date)>=S.dates.length-1;
+  const lines=allLines();const A=S.date?computeAlerts(S.date,lines):[];const ac=$("#alCount");ac.hidden=!A.filter(a=>a.sev!=="info").length;ac.textContent=A.filter(a=>a.sev!=="info").length;
+  if(S.view==="today")renderToday();else if(S.view==="market")renderMarket();else renderAlerts(A);}
+
+function renderToday(){const lines=allLines();const day=lines.filter(l=>l.date===S.date);
+  if(!S.meta){$("#kpis").innerHTML=`<div class="kpi"><div class="lbl">불러오는 중</div><div class="val">…</div></div>`;return;}
+  if(!day.length){$("#kpis").innerHTML="";$("#groups").innerHTML=`<div class="empty">${S.meta.empty?"<b>아직 PC에서 올린 자료가 없습니다.</b><br>회사 PC의 가락시장 구매분석이 켜져 있으면 정해진 시간에 자동으로 올라옵니다.":"이 날 명세서가 없습니다."}</div>`;$("#fSum").textContent="";return;}
+  const G=new Map();let cN=0,cD=0,cB=0,below=0,over=0;for(const l of day){const g=garakFor(l);G.set(l,g);if(g&&!g.missing){cN++;cD+=(l.price-g.avg)*l.qty;cB+=g.avg*l.qty;if(l.price<=g.avg)below++;if(l.price>g.max)over++;}}
+  const total=day.reduce((a,l)=>a+l.amount,0);const nV=new Set(day.map(l=>l.vendor)).size;
+  $("#kpis").innerHTML=`<div class="kpi"><div class="lbl">매입 금액</div><div class="val num">${man(total)}<small>원</small></div><div class="foot">${nV}곳 · ${day.length}줄</div></div>
+   <div class="kpi"><div class="lbl">청과 평균 대비</div>${cN?`<div class="val" style="color:var(${cD<=0?"--good":"--bad"})">${cD<=0?"−":"+"}${man(Math.abs(cD))}<small>원</small></div><div class="foot">${cB?((cD/cB)*100>0?"+":"")+((cD/cB)*100).toFixed(1)+"%":""} · 비교 ${cN}줄</div>`:`<div class="val" style="color:var(--muted)">시세 없음</div><div class="foot">시세를 받으면 계산</div>`}</div>
+   <div class="kpi"><div class="lbl">평균 이하로 산 줄</div><div class="val">${cN?below:"–"}<small>${cN?"/ "+cN+"줄":""}</small></div><div class="foot">&nbsp;</div></div>
+   <div class="kpi"><div class="lbl">최고가 초과</div><div class="val" style="color:var(${over?"--bad":"--fg"})">${cN?over:"–"}<small>${cN?"줄":""}</small></div><div class="foot">&nbsp;</div></div>`;
+  const vAmt={};day.forEach(l=>vAmt[l.vendor]=(vAmt[l.vendor]||0)+l.amount);const vs=Object.keys(vAmt).sort((a,b)=>vAmt[b]-vAmt[a]);
+  if(S.fV&&!vs.includes(S.fV))S.fV="";
+  $("#fVendor").innerHTML=`<option value="">전체 거래처 (${vs.length})</option>`+vs.map(v=>`<option value="${esc(v)}" ${v===S.fV?"selected":""}>${esc(v)} · ${man(vAmt[v])}</option>`).join("");
+  const dayF=day.filter(l=>(!S.fV||l.vendor===S.fV)&&lineMatchQ(l,S.fQ));
+  if(S.fV||S.fQ){let fd=0,fn=0;dayF.forEach(l=>{const g=G.get(l);if(g&&!g.missing){fn++;fd+=(l.price-g.avg)*l.qty;}});
+    $("#fSum").innerHTML=`찾은 결과 <b>${dayF.length}줄</b> · 매입 <b class="num">${won(dayF.reduce((a,l)=>a+l.amount,0))}</b>원${fn?` · 청과 평균 대비 <b class="num" style="color:var(${fd<=0?"--good":"--bad"})">${fd<=0?"−":"+"}${won(Math.abs(fd))}원</b>`:""}`;}else $("#fSum").textContent="";
+  if(!dayF.length){$("#groups").innerHTML=`<div class="empty">찾은 줄이 없습니다.</div>`;return;}
+  const byV={};dayF.forEach(l=>(byV[l.vendor]=byV[l.vendor]||[]).push(l));
+  const single=Object.keys(byV).length===1||!!S.fQ;
+  $("#groups").innerHTML=Object.keys(byV).sort((a,b)=>vAmt[b]-vAmt[a]).map(v=>{const ls=byV[v];let vd=0;ls.forEach(l=>{const g=G.get(l);if(g&&!g.missing)vd+=(l.price-g.avg)*l.qty;});
+    const corp=corpOf(vendorInfo(v)?.wholesaler);const ex=Object.entries(itemCorps(v));const open=single||S.open[v];
+    return `<div class="vgroup"><div class="vhead" data-v="${esc(v)}" role="button" tabindex="0" aria-expanded="${open}"><div><span class="n">${esc(v)}</span><span class="w">${corp?esc(corp)+" 기준":"청과 미지정"}${ex.length?" · 예외 "+esc(ex.map(([k,c])=>k+"→"+c).join(", ")):""} · ${ls.length}줄 ${man(ls.reduce((a,l)=>a+l.amount,0))}원</span></div><span class="d ${vd>0?"up":vd<0?"down":""}">${vd?(vd<0?"−":"+")+won(Math.abs(vd)):""} ${open?"▾":"▸"}</span></div>
+    ${open?ls.map(l=>{const g=G.get(l);const ok=g&&!g.missing;const vv=ok?verdict(l.price,g):null;
+      return `<div class="ln"><div class="it">${esc(l.item)} <span>${esc(l.spec)} ${esc(l.unit)}</span>${l.grade?`<span class="chip grade">${esc(l.grade)}</span>`:""}</div><div class="pr">${won(l.price)}</div>
+       <div class="q">${won(l.qty)} × ${won(l.price)} = ${won(l.amount)}${l.dest&&l.dest!=="참드레"?" · "+esc(l.dest):""}</div><div class="df ${ok?(l.price>g.avg?"up":"down"):""}">${ok?(l.price>g.avg?"+":l.price<g.avg?"−":"")+won(Math.abs((l.price-g.avg)*l.qty)):""}</div>
+       ${ok?`<div class="mk"><span class="chip ${vv[0]}">${vv[1]}</span>${rangeBar(l.price,g)}<span class="nums">${won(g.min)} · <b>${won(g.avg)}</b> · ${won(g.max)}</span></div><div class="src">${g.fallback?`<span class="chip warn">${esc(g.corp)} 기준</span> `:esc(g.corp)+" "}${esc(g.variety||"")} ${esc(g.spec)} · ${esc(g.grade)}${g.guessed?" · 규격 추정":""}${g.date!==l.date?" · "+g.date.slice(5)+" 시세":""}</div>`
+        :`<div class="src">시세 비교 안 함 · ${esc(g?.missing||"시세 없음")}</div>`}</div>`;}).join(""):""}</div>`;}).join("");
+  document.querySelectorAll(".vhead").forEach(h=>{const t=()=>{const v=h.dataset.v;S.open[v]=!S.open[v];renderToday();};h.onclick=t;h.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();t();}};});}
+
+function renderMarket(){const doc=S.date&&(S.garak[S.date]||[1,2,3].map(k=>S.garak[addDays(S.date,-k)]).find(Boolean));
+  $("#mCorps").innerHTML=["전체",...CORPS].map(c=>`<button aria-pressed="${S.mCorp===c}" data-c="${c}">${c}</button>`).join("");
+  $("#mCorps").querySelectorAll("button").forEach(b=>b.onclick=()=>{S.mCorp=b.dataset.c;renderMarket();});
+  if(!doc){$("#mList").innerHTML=`<div class="empty">이 날 받아 둔 시세가 없습니다.</div>`;return;}
+  const q=baseItem($("#mQ").value);
+  if(!q){const bought=[...new Set(allLines().filter(l=>l.date===S.date).map(l=>normItem(l.item)))];
+    $("#mList").innerHTML=`<div class="note" style="margin-bottom:8px">${prettyDate(doc.date)} 가락 경락 ${Number(doc.records||0).toLocaleString()}건. 품목을 넣거나 아래에서 고르세요.</div><div class="corpchips" style="flex-wrap:wrap">${bought.slice(0,40).map(b=>`<button data-q="${esc(b)}">${esc(b)}</button>`).join("")}</div>`;
+    $("#mList").querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>{$("#mQ").value=b.dataset.q;renderMarket();});return;}
+  let rows=doc.rows.filter(r=>(S.mCorp==="전체"||r.corp===S.mCorp)&&(baseItem(r.item+r.variety).includes(q)||nameScore(normItem(q),r,"수입")>0));
+  rows.sort((a,b)=>a.item.localeCompare(b.item,"ko")||String(a.variety).localeCompare(String(b.variety),"ko")||(+a.wt||0)-(+b.wt||0)||String(a.grade).localeCompare(String(b.grade),"ko")||CORPS.indexOf(a.corp)-CORPS.indexOf(b.corp));
+  $("#mList").innerHTML=rows.length?`<div class="note" style="margin-bottom:8px">${prettyDate(doc.date)} · ${rows.length}줄 · 최저 · <b>평균</b> · 최고</div><div class="box">${rows.slice(0,300).map(r=>`<div class="mrow"><div class="a">${esc(r.variety||r.item)} <span>${esc(wtLabel(r))}${r.grade?" · "+esc(r.grade):""}</span></div><div class="b">${won(r.avg)}</div><div class="c">${esc(r.corp)} · 거래 ${won(r.qty)}개</div><div class="e">${won(r.min)} ~ ${won(r.max)}</div></div>`).join("")}</div>`
+    :`<div class="empty">'${esc($("#mQ").value)}' 시세가 없습니다. 회사 PC에서 그 품목을 받으면 여기에도 나옵니다.</div>`;}
+
+function renderAlerts(A){$("#alList").innerHTML=A.length?A.slice(0,40).map(a=>`<div class="alert ${a.sev}"><div class="bar"></div><div style="min-width:0"><div class="t1">${esc(a.t1)}</div><div class="t2">${esc(a.t2)}</div></div></div>`).join(""):`<div class="empty" style="border:0">확인할 것이 없습니다.</div>`;}
+
+route();boot();
+})();
+</script>
+
+</body></html>
