@@ -19,6 +19,17 @@ var TAB_TEXT = "자동채굴";          // 하단 탭 글자
 var INTERVAL_MIN = 60;             // 반복 간격(분)
 var LOAD_WAIT_SEC = 8;             // 앱이 뜰 때까지 기다리는 시간(초)
 var POPUP_TEXTS = ["확인", "닫기", "오늘 하루 보지 않기", "다음에", "취소"]; // 클릭 후 뜨는 팝업 버튼들
+
+// ---- 잠금 패턴 (패턴 잠금을 쓰는 경우만) ----
+// 점 번호:  1 2 3
+//           4 5 6
+//           7 8 9
+// 예) ㄱ자 패턴이면 "1236" 또는 [1,2,3,6]. 패턴 잠금이 없으면 "" 로 두세요.
+var UNLOCK_PATTERN = "";
+// 잠금화면에서 1번 점(왼쪽 위)과 9번 점(오른쪽 아래)의 화면 좌표.
+// 개발자 옵션 → "포인터 위치" 를 켜고 잠금화면에서 점을 눌러보면 X, Y 값이 보입니다.
+var DOT1_X = 0, DOT1_Y = 0;
+var DOT9_X = 0, DOT9_Y = 0;
 // =================================================
 
 auto.waitFor(); // 접근성 서비스 권한 확인 (없으면 설정 화면으로 안내)
@@ -37,17 +48,44 @@ function say(msg) {
     toast(msg);
 }
 
-/** 화면이 꺼져 있으면 켜고, 잠금화면이면 위로 밀어서 해제 (보안 잠금은 불가) */
+function isLocked() {
+    var km = context.getSystemService(android.content.Context.KEYGUARD_SERVICE);
+    return km.isKeyguardLocked();
+}
+
+/** UNLOCK_PATTERN 대로 잠금 패턴을 그림 */
+function drawPattern() {
+    var digits = String(UNLOCK_PATTERN).replace(/[^1-9]/g, "").split("");
+    if (digits.length < 2) return;
+    if (!DOT1_X || !DOT9_X) {
+        say("패턴 좌표(DOT1_X 등)가 설정되지 않았습니다");
+        return;
+    }
+    var stepX = (DOT9_X - DOT1_X) / 2, stepY = (DOT9_Y - DOT1_Y) / 2;
+    var pts = digits.map(function (d) {
+        var n = parseInt(d, 10) - 1;
+        return [Math.round(DOT1_X + (n % 3) * stepX), Math.round(DOT1_Y + Math.floor(n / 3) * stepY)];
+    });
+    var args = [Math.max(400, pts.length * 250)].concat(pts);
+    gesture.apply(null, args);
+}
+
+/** 화면이 꺼져 있으면 켜고, 잠금화면이면 해제 (밀기 / 패턴) */
 function wakeScreen() {
     if (!device.isScreenOn()) {
         device.wakeUp();
         sleep(1500);
     }
-    // 잠금화면이 떠 있으면 위로 스와이프
-    var km = context.getSystemService(android.content.Context.KEYGUARD_SERVICE);
-    if (km.isKeyguardLocked()) {
+    if (isLocked()) {
+        // 1) 위로 밀어서 잠금화면 넘기기
         swipe(device.width / 2, device.height * 0.85, device.width / 2, device.height * 0.25, 400);
         sleep(1500);
+        // 2) 패턴 입력 화면이면 패턴 그리기 (최대 2번 시도)
+        for (var i = 0; i < 2 && isLocked() && UNLOCK_PATTERN; i++) {
+            drawPattern();
+            sleep(2000);
+        }
+        if (isLocked()) say("잠금 해제 실패 - 패턴/좌표 설정을 확인하세요");
     }
     device.keepScreenOn(3 * 60 * 1000); // 작업하는 동안 3분간 화면 유지
 }
