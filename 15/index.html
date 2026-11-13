@@ -1,0 +1,393 @@
+<!doctype html><html><head><meta charset=utf8><script>window.PC_APP="15_새벽 입고 확인";</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script><script src="../js/cloud-config.js"></script><script src="../js/pc-cloud.js"></script><script src="../js/pc-runtime.js"></script><link rel="manifest" href="../manifest.webmanifest"><meta name="theme-color" content="#20382c"><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;padding:0}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>새벽 입고 확인</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* 현장(폰): 큰 검색창 하나 + 큰 결과 카드. 사무실(PC): 목록 붙여넣기 + 상태 바꾸는 표 */
+:root {
+  --bg: #eef1ec; --surface: #ffffff; --fg: #18251e; --muted: #56655c; --line: #cdd6cd;
+  --band: #20382c; --band-fg: #f4f7f1; --band-muted: #b6c8ba;
+  --accent: #c4501b; --accent-fg: #ffffff; --soft: #e3e9e1;
+  --ok: #17693f; --ok-bg: #dcefe2; --no: #b3261e; --no-bg: #fae3e0;
+  --late: #8a5a00; --late-bg: #fbeecb; --ask: #1b5c9e; --ask-bg: #deebf8;
+  --display: "Do Hyeon", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  --body: "IBM Plex Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121a15; --surface: #1a251f; --fg: #e8efe8; --muted: #a4b4a9; --line: #33453a;
+  --band: #0d1f16; --band-fg: #eef5ec; --band-muted: #a3b9a9;
+  --accent: #f08a50; --accent-fg: #26110a; --soft: #26342c;
+  --ok: #6fd39b; --ok-bg: #173526; --no: #f59a90; --no-bg: #42201d;
+  --late: #efc566; --late-bg: #3b2f12; --ask: #8fc1f4; --ask-bg: #1a3148; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #121a15; --surface: #1a251f; --fg: #e8efe8; --muted: #a4b4a9; --line: #33453a;
+  --band: #0d1f16; --band-fg: #eef5ec; --band-muted: #a3b9a9;
+  --accent: #f08a50; --accent-fg: #26110a; --soft: #26342c;
+  --ok: #6fd39b; --ok-bg: #173526; --no: #f59a90; --no-bg: #42201d;
+  --late: #efc566; --late-bg: #3b2f12; --ask: #8fc1f4; --ask-bg: #1a3148; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.5; font-variant-numeric: tabular-nums; padding-bottom: 40px }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--band) }
+button, input, select, textarea { font: inherit; color: inherit }
+button { cursor: pointer }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px }
+.wrap { max-width: 1100px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)) }
+header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 9; background: var(--band); color: var(--band-fg) }
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 20px; padding-block: 10px }
+.brand { font-family: var(--display); font-size: 24px; margin-right: auto }
+nav { display: flex; gap: 4px }
+nav a { color: var(--band-muted); text-decoration: none; padding: 10px 16px; font-weight: 700; border-radius: 6px }
+nav a[aria-current="page"] { background: var(--band-fg); color: var(--band) }
+main { padding-block: 18px; display: grid; gap: 18px }
+main > * { min-width: 0 }
+h1, h2 { font-family: var(--display); font-weight: 400; margin: 0 }
+h1 { font-size: 28px } h2 { font-size: 22px }
+.sub { color: var(--muted); margin: 2px 0 0 }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center }
+.between { justify-content: space-between }
+.btn { min-height: 46px; padding: 8px 16px; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; font-weight: 700 }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg) }
+.btn.quiet { background: transparent }
+.btn.danger { color: var(--no); border-color: var(--no) }
+.field { display: grid; gap: 3px; font-size: 14px; color: var(--muted); font-weight: 500 }
+input, select, textarea { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; min-height: 44px; width: 100%; color: var(--fg) }
+textarea { min-height: 150px; font-family: ui-monospace, Consolas, monospace; font-size: 14px }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 14px; min-width: 0 }
+.note { padding: 10px 12px; border-radius: 6px; background: var(--late-bg); color: var(--late); font-weight: 500 }
+.empty { padding: 30px 16px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 8px }
+.pill { display: inline-block; padding: 3px 12px; border-radius: 99px; font-size: 14px; font-weight: 700; white-space: nowrap }
+.st-coming { background: var(--ok-bg); color: var(--ok) }
+.st-late { background: var(--late-bg); color: var(--late) }
+.st-none { background: var(--no-bg); color: var(--no) }
+.st-check { background: var(--ask-bg); color: var(--ask) }
+
+/* 현장 검색 */
+.searchbox { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 62px); z-index: 5; background: var(--bg); padding-block: 4px 8px; display: grid; gap: 8px }
+.searchbox input { font-size: 24px; min-height: 64px; padding: 10px 16px; border: 2px solid var(--band); border-radius: 10px; font-weight: 700 }
+.chips { display: flex; flex-wrap: wrap; gap: 8px }
+.chip { min-height: 44px; padding: 6px 16px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); font-weight: 700 }
+.chip[aria-pressed="true"] { background: var(--band); border-color: var(--band); color: var(--band-fg) }
+.meta { color: var(--muted); font-size: 14px }
+.results { display: grid; gap: 10px }
+.res { background: var(--surface); border: 1px solid var(--line); border-left-width: 8px; border-radius: 8px; padding: 14px 16px; display: grid; gap: 8px }
+.res.st-coming { border-left-color: var(--ok); background: var(--surface); color: var(--fg) }
+.res.st-late { border-left-color: var(--late); background: var(--surface); color: var(--fg) }
+.res.st-none { border-left-color: var(--no); background: var(--surface); color: var(--fg) }
+.res.st-check { border-left-color: var(--ask); background: var(--surface); color: var(--fg) }
+.rhead { display: flex; justify-content: space-between; align-items: start; gap: 10px }
+.rname { font-family: var(--display); font-size: 28px; line-height: 1.15 }
+.rname small { font-family: var(--body); font-size: 15px; color: var(--muted); margin-left: 6px }
+.rqty { font-family: var(--display); font-size: 26px; white-space: nowrap }
+.where { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 18px }
+.where span b { color: var(--muted); font-weight: 500; font-size: 14px; margin-right: 4px }
+.rnote { font-size: 18px; font-weight: 700 }
+.res.st-none .rnote { color: var(--no) } .res.st-late .rnote { color: var(--late) }
+mark { background: var(--late-bg); color: inherit; border-radius: 3px }
+
+/* 사무실 표 */
+.scroll { overflow-x: auto }
+table { border-collapse: collapse; width: 100% }
+th { text-align: left; font-size: 13px; color: var(--muted); font-weight: 500; white-space: nowrap }
+th, td { padding: 6px; border-bottom: 1px solid var(--line); vertical-align: middle }
+td input, td select { min-height: 40px; padding: 6px 8px }
+td.nm input { min-width: 120px; font-weight: 700 } td.q input { width: 80px } td.s input { min-width: 90px }
+td select.st-coming, td select.st-late, td select.st-none, td select.st-check { font-weight: 700; border-color: currentColor }
+.icon { width: 40px; min-height: 40px; border: 0; background: transparent; color: var(--muted); font-size: 20px }
+.drop { display: inline-flex; align-items: center; min-height: 46px; padding: 8px 16px; border: 1px solid var(--line); border-radius: 6px; font-weight: 700; cursor: pointer; background: var(--surface) }
+.drop input { position: absolute; width: 1px; height: 1px; opacity: 0; min-height: 0; padding: 0 }
+.counts { display: flex; flex-wrap: wrap; gap: 8px }
+#toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); z-index: 20; background: var(--fg); color: var(--bg); padding: 10px 18px; border-radius: 6px; font-weight: 500; max-width: calc(100vw - 32px) }
+@media (max-width: 640px) { .brand { font-size: 21px } nav a { padding: 8px 12px } .rname { font-size: 25px } }
+</style>
+
+<header><div class="wrap top">
+  <div class="brand">새벽 입고 확인</div>
+  <nav aria-label="화면">
+    <a href="#find" data-nav="find">물건 찾기</a>
+    <a href="#office" data-nav="office">사무실 등록</a>
+  </nav>
+</div></header>
+<main class="wrap" id="app"></main>
+<div id="toast" hidden></div>
+
+<script>
+const pad = n => String(n).padStart(2, '0');
+const ymd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const today = () => ymd(new Date());
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const hhmm = iso => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? '' : (ymd(d) === today() ? '' : (d.getMonth() + 1) + '/' + d.getDate() + ' ') + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+
+const STATUS = {
+  coming: { label: '내려옴·오는 중', short: '오는 중' },
+  late:   { label: '늦게 옴', short: '늦게 옴' },
+  none:   { label: '안 옴 (결품)', short: '안 옴' },
+  check:  { label: '사무실 확인 중', short: '확인 중' },
+};
+const ORDER = ['none', 'late', 'check', 'coming'];
+
+/* ---------- 초성 검색: "ㄲㅇ" → 깻잎 ---------- */
+const CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
+const norm = s => String(s ?? '').toLowerCase().replace(/\s+/g, '');
+const cho = s => [...s].map(c => { const k = c.charCodeAt(0) - 0xAC00; return k >= 0 && k < 11172 ? CHO[Math.floor(k / 588)] : c; }).join('');
+const isCho = s => /^[ㄱ-ㅎ]+$/.test(s);
+function matches(item, q) {
+  if (!q) return true;
+  const hay = norm([item.name, item.spec, item.source, item.car, item.mark, item.note].join(' '));
+  if (hay.includes(q)) return true;
+  if (isCho(q)) return cho(norm(item.name)).includes(q);
+  return false;
+}
+function hl(text, q) {
+  const t = String(text ?? ''); if (!q || isCho(q)) return esc(t);
+  const i = norm(t).indexOf(q); if (i < 0) return esc(t);
+  // 공백을 무시하고 찾았으므로 원문 위치로 다시 맞춤
+  let a = -1, b = -1, k = 0;
+  for (let j = 0; j < t.length; j++) { if (/\s/.test(t[j])) continue; if (k === i) a = j; if (k === i + q.length - 1) { b = j + 1; break; } k++; }
+  if (a < 0 || b < 0) return esc(t);
+  return esc(t.slice(0, a)) + '<mark>' + esc(t.slice(a, b)) + '</mark>' + esc(t.slice(b));
+}
+
+/* ---------- 상태 ---------- */
+const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k) || ''; localStorage.setItem(k, v); } catch (e) { return ''; } };
+const S = { view: 'find', ready: false, demo: false, items: [], date: today(), q: '', filter: 'all', paste: '', confirmClear: false };
+let db = null, needsRender = false;
+const timers = {};
+
+function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 3500); }
+function saveFail(e) { toast(e && e.code === 'not_granted' ? '이 계정은 저장 권한이 없습니다.' : '저장하지 못했습니다. 인터넷 연결을 확인해 주세요.'); }
+
+function saveItem(it, immediate) {
+  it.updatedAt = new Date().toISOString();
+  const i = S.items.findIndex(x => x.id === it.id);
+  if (i >= 0) S.items[i] = it; else S.items.push(it);
+  if (!db) return;
+  clearTimeout(timers[it.id]);
+  timers[it.id] = setTimeout(async () => {
+    const { id, ...data } = S.items.find(x => x.id === it.id) || it;
+    try { await db.doc('items/' + id).set(data); } catch (e) { saveFail(e); }
+    delete timers[it.id];
+  }, immediate ? 0 : 500);
+}
+async function removeItem(id) {
+  S.items = S.items.filter(x => x.id !== id);
+  clearTimeout(timers[id]); delete timers[id];
+  if (db) try { await db.doc('items/' + id).delete(); } catch (e) { saveFail(e); }
+}
+const ofDate = d => S.items.filter(x => x.date === d).sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0) || String(a.name).localeCompare(String(b.name), 'ko'));
+
+/* ---------- 목록 읽기 (엑셀 붙여넣기 / 파일) ---------- */
+const COLS = [
+  ['name', /품목|품명|상품|이름/], ['qty', /수량|개수|박스수|qty/i], ['unit', /단위/], ['spec', /규격|중량|kg/i],
+  ['source', /법인|중도매|매입처|산\s*곳|구매처|출하|상회|청과/], ['car', /차량|호차|차\b|기사/], ['mark', /표시|마크|테이프|스티커|구분/],
+  ['status', /상태|결품|입고/], ['note', /메모|비고|참고/],
+];
+const DEFAULT_ORDER = ['name', 'qty', 'unit', 'source', 'car', 'mark', 'note'];
+function readStatus(v) {
+  const s = norm(v); if (!s) return '';
+  if (/결품|안옴|미입고|없음|x/.test(s)) return 'none';
+  if (/늦|지연|2차|후착/.test(s)) return 'late';
+  if (/확인|문의|\?/.test(s)) return 'check';
+  return 'coming';
+}
+function rowsToItems(rows) {
+  rows = rows.map(r => r.map(c => String(c ?? '').trim())).filter(r => r.some(Boolean));
+  if (!rows.length) return [];
+  let map = null;
+  const head = rows[0];
+  const found = {};
+  head.forEach((h, i) => { for (const [k, re] of COLS) if (!(k in found) && re.test(h)) { found[k] = i; break; } });
+  if ('name' in found) { map = found; rows = rows.slice(1); }
+  else { map = {}; DEFAULT_ORDER.forEach((k, i) => map[k] = i); }
+  const base = Date.now();
+  return rows.map((r, i) => {
+    const g = k => (k in map ? r[map[k]] ?? '' : '');
+    let name = g('name'), qty = g('qty'), unit = g('unit');
+    if (!unit && /^[\d.,]+\s*\D+$/.test(qty)) { const m = qty.match(/^([\d.,]+)\s*(\D+)$/); qty = m[1]; unit = m[2].trim(); }
+    return { id: uid(), date: S.date, seq: base + i, name, qty, unit, spec: g('spec'), source: g('source'), car: g('car'), mark: g('mark'),
+      status: readStatus(g('status')) || 'coming', note: g('note') };
+  }).filter(x => x.name);
+}
+function addItems(list) {
+  if (!list.length) { toast('읽을 수 있는 품목이 없습니다. 첫 칸에 품목 이름이 있어야 합니다.'); return; }
+  list.forEach(it => saveItem(it, true));
+  toast(list.length + '개 품목을 올렸습니다. 현장 폰에 바로 보입니다.');
+}
+function handlePaste() {
+  const rows = S.paste.split(/\r?\n/).map(l => l.includes('\t') ? l.split('\t') : l.split(/\s*,\s*|\s{2,}/));
+  const list = rowsToItems(rows);
+  if (list.length) S.paste = '';
+  addItems(list); render(true);
+}
+async function handleFile(f) {
+  try {
+    if (!window.XLSX) throw new Error('엑셀 도구를 불러오지 못했습니다.');
+    const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
+    addItems(rowsToItems(rows)); render(true);
+  } catch (e) { toast('파일을 읽지 못했습니다: ' + (e.message || e)); }
+}
+
+/* ---------- 화면 ---------- */
+function render(force) {
+  const a = document.activeElement;
+  const typingSearch = a && a.id === 'q';
+  if (!force && !typingSearch && a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.type !== 'file') { needsRender = true; return; }
+  needsRender = false;
+  document.querySelectorAll('[data-nav]').forEach(n => n.dataset.nav === S.view ? n.setAttribute('aria-current', 'page') : n.removeAttribute('aria-current'));
+  const app = document.getElementById('app');
+  if (!S.ready) { app.innerHTML = '<div class="empty">자료를 불러오는 중입니다.</div>'; return; }
+  const banner = S.demo ? '<div class="note">연습 화면입니다. 예시 자료만 보이고 저장되지 않습니다.</div>' : '';
+  if (S.view === 'find') {
+    // 검색창은 다시 그리지 않아야 폰 키보드가 닫히지 않음
+    if (!document.getElementById('q')) app.innerHTML = banner + findShell();
+    document.getElementById('find-body').innerHTML = findBody();
+  } else app.innerHTML = banner + officeView();
+}
+
+function findShell() {
+  return `<div class="searchbox">
+    <input id="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="품목 검색 (예: 깻잎, ㄲㅇ)" value="${esc(S.q)}" aria-label="품목 검색">
+    <div class="chips" id="chips"></div>
+  </div>
+  <div id="find-body" class="results"></div>`;
+}
+function findBody() {
+  const all = ofDate(S.date);
+  const q = norm(S.q);
+  const cnt = k => all.filter(x => x.status === k).length;
+  document.getElementById('chips').innerHTML = [['all', '전체 ' + all.length], ['none', '안 옴 ' + cnt('none')], ['late', '늦게 옴 ' + cnt('late')], ['check', '확인 중 ' + cnt('check')]]
+    .map(([k, l]) => `<button class="chip" data-act="filter" data-f="${k}" aria-pressed="${S.filter === k}">${l}</button>`).join('');
+  const last = all.reduce((m, x) => (x.updatedAt > m ? x.updatedAt : m), '');
+  const meta = `<div class="row between meta"><span>${S.date === today() ? '오늘' : esc(S.date)} 목록 · 사무실 마지막 수정 ${last ? hhmm(last) : '-'}</span>
+    <label class="row" style="gap:6px">날짜 <input type="date" data-set="date" value="${esc(S.date)}" style="width:auto;min-height:36px;padding:4px 8px"></label></div>`;
+  if (!all.length) return meta + `<div class="empty">이 날짜에 사무실이 올린 목록이 아직 없습니다.<br>사무실에 목록을 올려 달라고 하거나 날짜를 바꿔 보세요.</div>`;
+  let list = all.filter(x => (S.filter === 'all' || x.status === S.filter) && matches(x, q));
+  list.sort((a, b) => ORDER.indexOf(a.status) - ORDER.indexOf(b.status));
+  if (!list.length) {
+    return meta + (q ? `<div class="empty"><b style="font-size:20px;color:var(--fg)">"${esc(S.q)}"는 오늘 목록에 없습니다.</b><br>오늘 산 물건이 아니거나 이름이 다르게 올라갔을 수 있습니다. 이때만 사무실에 전화해 주세요.</div>`
+      : `<div class="empty">해당하는 품목이 없습니다.</div>`);
+  }
+  return meta + list.map(x => card(x, q)).join('');
+}
+function card(x, q) {
+  const st = STATUS[x.status] || STATUS.coming;
+  const where = [['산 곳', x.source], ['차량', x.car], ['표시', x.mark]].filter(([, v]) => v)
+    .map(([k, v]) => `<span><b>${k}</b>${hl(v, q)}</span>`).join('');
+  const fallback = x.status === 'none' ? '오늘 안 내려옵니다. 찾지 않으셔도 됩니다.' : x.status === 'late' ? '늦게 내려옵니다.' : x.status === 'check' ? '사무실에서 확인 중입니다.' : '';
+  return `<article class="res st-${x.status}">
+    <div class="rhead"><div class="rname">${hl(x.name, q)}${x.spec ? `<small>${hl(x.spec, q)}</small>` : ''}</div>
+      <div class="rqty">${esc(x.qty)}${esc(x.unit)}</div></div>
+    <div><span class="pill st-${x.status}">${st.label}</span></div>
+    ${where ? `<div class="where">${where}</div>` : ''}
+    ${x.note || fallback ? `<div class="rnote">${x.note ? hl(x.note, q) : fallback}</div>` : ''}
+  </article>`;
+}
+
+function officeView() {
+  const list = ofDate(S.date);
+  const cnt = k => list.filter(x => x.status === k).length;
+  return `
+  <div><h1>사무실 등록</h1><p class="sub">오늘 가락에서 산 목록을 올리고, 안 오거나 늦는 품목은 상태를 바꿔 주세요. 현장 폰에 몇 초 안에 반영됩니다.</p></div>
+  <section class="panel">
+    <div class="row between"><h2>목록 올리기</h2>
+      <label class="field">날짜<input type="date" data-set="date" value="${esc(S.date)}" style="width:auto"></label></div>
+    <p class="sub" style="margin:0">엑셀에서 표를 복사해 아래에 붙여넣으세요. 첫 줄에 <b>품목·수량·단위·산 곳·차량·표시·상태·메모</b> 같은 제목이 있으면 알아서 맞춥니다. 제목이 없으면 이 순서로 읽습니다.</p>
+    <textarea id="paste" data-paste placeholder="품목&#9;수량&#9;단위&#9;산 곳&#9;차량&#9;표시&#9;메모&#10;깻잎&#9;5&#9;박스&#9;○○청과&#9;1호차&#9;노란 테이프">${esc(S.paste)}</textarea>
+    <div class="row">
+      <button class="btn primary" data-act="paste">붙여넣은 목록 올리기</button>
+      <label class="drop">엑셀 파일 고르기<input id="upload" type="file" accept=".xlsx,.xls,.csv"></label>
+      <button class="btn" data-act="addrow">한 줄 직접 추가</button>
+    </div>
+  </section>
+  <section class="panel">
+    <div class="row between"><h2>${S.date === today() ? '오늘' : esc(S.date)} 목록 ${list.length}개</h2>
+      <div class="counts"><span class="pill st-none">안 옴 ${cnt('none')}</span><span class="pill st-late">늦게 옴 ${cnt('late')}</span><span class="pill st-check">확인 중 ${cnt('check')}</span></div></div>
+    ${list.length ? `<div class="scroll"><table><thead><tr><th>품목</th><th>규격</th><th>수량</th><th>단위</th><th>상태</th><th>산 곳</th><th>차량</th><th>표시</th><th>현장에 보일 메모</th><th></th></tr></thead><tbody>
+    ${list.map(x => `<tr>
+      <td class="nm"><input data-f="name" data-id="${x.id}" value="${esc(x.name)}" aria-label="품목"></td>
+      <td class="s"><input data-f="spec" data-id="${x.id}" value="${esc(x.spec)}" aria-label="규격"></td>
+      <td class="q"><input data-f="qty" data-id="${x.id}" value="${esc(x.qty)}" inputmode="decimal" aria-label="수량"></td>
+      <td class="q"><input data-f="unit" data-id="${x.id}" value="${esc(x.unit)}" aria-label="단위"></td>
+      <td><select class="st-${x.status}" data-f="status" data-id="${x.id}" aria-label="상태">${Object.entries(STATUS).map(([k, v]) => `<option value="${k}" ${x.status === k ? 'selected' : ''}>${v.label}</option>`).join('')}</select></td>
+      <td class="s"><input data-f="source" data-id="${x.id}" value="${esc(x.source)}" aria-label="산 곳"></td>
+      <td class="q"><input data-f="car" data-id="${x.id}" value="${esc(x.car)}" aria-label="차량"></td>
+      <td class="s"><input data-f="mark" data-id="${x.id}" value="${esc(x.mark)}" aria-label="표시"></td>
+      <td class="s"><input data-f="note" data-id="${x.id}" value="${esc(x.note)}" placeholder="예: 5시 2차로 옴" aria-label="메모"></td>
+      <td><button class="icon" data-act="rm" data-id="${x.id}" aria-label="${esc(x.name)} 삭제">×</button></td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="row">${S.confirmClear ? `<button class="btn danger" data-act="clear">이 날짜 목록 전부 삭제</button><button class="btn quiet" data-act="clearno">취소</button>` : `<button class="btn quiet" data-act="clearask">이 날짜 목록 비우기</button>`}</div>`
+    : '<div class="empty">이 날짜에 올린 목록이 없습니다. 위에서 붙여넣어 주세요.</div>'}
+  </section>`;
+}
+
+/* ---------- 입력 ---------- */
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t.id === 'q') { S.q = t.value; document.getElementById('find-body').innerHTML = findBody(); return; }
+  if (t.matches('[data-paste]')) { S.paste = t.value; return; }
+  if (t.dataset.f && t.dataset.id && t.tagName === 'INPUT') {
+    const it = S.items.find(x => x.id === t.dataset.id); if (!it) return;
+    saveItem({ ...it, [t.dataset.f]: t.value });
+  }
+});
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.set === 'date') { S.date = t.value || today(); S.confirmClear = false; render(true); return; }
+  if (t.id === 'upload' && t.files[0]) { handleFile(t.files[0]); t.value = ''; return; }
+  if (t.tagName === 'SELECT' && t.dataset.f === 'status') {
+    const it = S.items.find(x => x.id === t.dataset.id); if (!it) return;
+    saveItem({ ...it, status: t.value }, true); t.className = 'st-' + t.value;
+  }
+});
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const act = b.dataset.act;
+  if (act === 'filter') { S.filter = b.dataset.f; render(true); }
+  else if (act === 'paste') handlePaste();
+  else if (act === 'addrow') { saveItem({ id: uid(), date: S.date, seq: Date.now(), name: '새 품목', qty: '', unit: '박스', spec: '', source: '', car: '', mark: '', status: 'coming', note: '' }, true); render(true); }
+  else if (act === 'rm') { removeItem(b.dataset.id); render(true); }
+  else if (act === 'clearask') { S.confirmClear = true; render(true); }
+  else if (act === 'clearno') { S.confirmClear = false; render(true); }
+  else if (act === 'clear') { ofDate(S.date).forEach(x => removeItem(x.id)); S.confirmClear = false; render(true); toast('목록을 비웠습니다.'); }
+});
+document.addEventListener('focusout', () => setTimeout(() => { if (needsRender) render(); }, 50));
+
+function route() {
+  const h = location.hash.slice(1);
+  S.view = h === 'office' ? 'office' : 'find';
+  store('view', S.view);
+  document.getElementById('app').innerHTML = '';
+  render(true);
+  if (S.view === 'find') { const q = document.getElementById('q'); if (q && matchMedia('(pointer:fine)').matches) q.focus(); }
+}
+addEventListener('hashchange', route);
+
+function startDemo() {
+  S.demo = true; S.ready = true;
+  const d = today(), t = new Date().toISOString();
+  S.items = [
+    ['깻잎', '2kg', 5, '박스', '서울청과 12번', '1호차', '노란 테이프', 'coming', ''],
+    ['청상추', '4kg', 8, '박스', '동화청과', '1호차', '파란 매직', 'coming', ''],
+    ['쪽파', '4kg', 3, '박스', '대아청과', '2호차', '', 'late', '5시 2차로 옴'],
+    ['대파', '1단', 40, '단', '한국청과', '1호차', '빨간 끈', 'coming', ''],
+    ['미나리', '', 6, '박스', '서울청과', '', '', 'none', '오늘 경매 없음. 결품'],
+    ['적겨자', '2kg', 2, '박스', '중앙청과', '2호차', '', 'check', ''],
+  ].map(([name, spec, qty, unit, source, car, mark, status, note], i) => ({ id: 'ex' + i, date: d, seq: i, name, spec, qty, unit, source, car, mark, status, note, updatedAt: t }));
+  route();
+}
+async function boot() {
+  if (!location.hash && store('view') === 'office') location.replace('#office');
+  route();
+  try { if (!window.claude) throw 0; db = await claude.use('db').catch(() => null); } catch (e) {}
+  if (!db) return startDemo();
+  db.collection('items').onSnapshot(q => {
+    const next = q.docs.map(d => ({ id: d.id, ...d.data() }));
+    // 저장 대기 중인 내 수정은 유지
+    Object.keys(timers).forEach(k => { const mine = S.items.find(x => x.id === k); if (mine) { const i = next.findIndex(x => x.id === k); if (i >= 0) next[i] = mine; else next.push(mine); } });
+    S.items = next; S.ready = true; render();
+  }, () => { if (!S.ready) startDemo(); });
+}
+boot();
+</script>
+</body></html>
