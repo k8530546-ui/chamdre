@@ -118,13 +118,8 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const hhmm = iso => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? '' : (ymd(d) === today() ? '' : (d.getMonth() + 1) + '/' + d.getDate() + ' ') + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
 
-const STATUS = {
-  coming: { label: '내려옴·오는 중', short: '오는 중' },
-  late:   { label: '늦게 옴', short: '늦게 옴' },
-  none:   { label: '안 옴 (결품)', short: '안 옴' },
-  check:  { label: '사무실 확인 중', short: '확인 중' },
-};
-const ORDER = ['none', 'late', 'check', 'coming'];
+// 왔음 / 안 왔음 두 가지. 수량이 0이거나 비어 있어도 안 왔음
+const arrived = x => x.status !== 'none' && parseFloat(String(x.qty ?? '').replace(/,/g, '')) > 0;
 
 /* ---------- 초성 검색: "ㄲㅇ" → 깻잎 ---------- */
 const CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
@@ -133,7 +128,7 @@ const cho = s => [...s].map(c => { const k = c.charCodeAt(0) - 0xAC00; return k 
 const isCho = s => /^[ㄱ-ㅎ]+$/.test(s);
 function matches(item, q) {
   if (!q) return true;
-  const hay = norm([item.name, item.spec, item.source, item.car, item.mark, item.note].join(' '));
+  const hay = norm(item.name);
   if (hay.includes(q)) return true;
   if (isCho(q)) return cho(norm(item.name)).includes(q);
   return false;
@@ -182,13 +177,10 @@ const COLS = [
   ['source', /법인|중도매|매입처|산\s*곳|구매처|출하|상회|청과/], ['car', /차량|호차|차\b|기사/], ['mark', /표시|마크|테이프|스티커|구분/],
   ['status', /상태|결품|입고/], ['note', /메모|비고|참고/],
 ];
-const DEFAULT_ORDER = ['name', 'qty', 'unit', 'source', 'car', 'mark', 'note'];
+const DEFAULT_ORDER = ['name', 'qty', 'unit'];
 function readStatus(v) {
   const s = norm(v); if (!s) return '';
-  if (/결품|안옴|미입고|없음|x/.test(s)) return 'none';
-  if (/늦|지연|2차|후착/.test(s)) return 'late';
-  if (/확인|문의|\?/.test(s)) return 'check';
-  return 'coming';
+  return /결품|안옴|안왔|미입고|없음|^x$/.test(s) ? 'none' : 'coming';
 }
 function rowsToItems(rows) {
   rows = rows.map(r => r.map(c => String(c ?? '').trim())).filter(r => r.some(Boolean));
@@ -247,7 +239,7 @@ function render(force) {
 
 function findShell() {
   return `<div class="searchbox">
-    <input id="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="품목 검색 (예: 깻잎, ㄲㅇ)" value="${esc(S.q)}" aria-label="품목 검색">
+    <input id="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="품목 검색 (예: 깻잎)" value="${esc(S.q)}" aria-label="품목 검색">
     <div class="chips" id="chips"></div>
   </div>
   <div id="find-body" class="results"></div>`;
@@ -255,45 +247,34 @@ function findShell() {
 function findBody() {
   const all = ofDate(S.date);
   const q = norm(S.q);
-  const cnt = k => all.filter(x => x.status === k).length;
-  document.getElementById('chips').innerHTML = [['all', '전체 ' + all.length], ['none', '안 옴 ' + cnt('none')], ['late', '늦게 옴 ' + cnt('late')], ['check', '확인 중 ' + cnt('check')]]
+  const noCnt = all.filter(x => !arrived(x)).length;
+  document.getElementById('chips').innerHTML = [['all', '전체 ' + all.length], ['none', '안 왔음 ' + noCnt]]
     .map(([k, l]) => `<button class="chip" data-act="filter" data-f="${k}" aria-pressed="${S.filter === k}">${l}</button>`).join('');
-  const last = all.reduce((m, x) => (x.updatedAt > m ? x.updatedAt : m), '');
-  const meta = `<div class="row between meta"><span>${S.date === today() ? '오늘' : esc(S.date)} 목록 · 사무실 마지막 수정 ${last ? hhmm(last) : '-'}</span>
+  const meta = `<div class="row between meta"><span>${S.date === today() ? '오늘' : esc(S.date)} 입고</span>
     <label class="row" style="gap:6px">날짜 <input type="date" data-set="date" value="${esc(S.date)}" style="width:auto;min-height:36px;padding:4px 8px"></label></div>`;
-  if (!all.length) return meta + `<div class="empty">이 날짜에 사무실이 올린 목록이 아직 없습니다.<br>사무실에 목록을 올려 달라고 하거나 날짜를 바꿔 보세요.</div>`;
-  let list = all.filter(x => (S.filter === 'all' || x.status === S.filter) && matches(x, q));
-  list.sort((a, b) => ORDER.indexOf(a.status) - ORDER.indexOf(b.status));
-  if (!list.length) {
-    return meta + (q ? `<div class="empty"><b style="font-size:20px;color:var(--fg)">"${esc(S.q)}"는 오늘 목록에 없습니다.</b><br>오늘 산 물건이 아니거나 이름이 다르게 올라갔을 수 있습니다. 이때만 사무실에 전화해 주세요.</div>`
-      : `<div class="empty">해당하는 품목이 없습니다.</div>`);
-  }
+  if (!all.length) return meta + `<div class="empty">이 날짜에 사무실이 올린 목록이 아직 없습니다.</div>`;
+  const list = all.filter(x => (S.filter === 'all' || !arrived(x)) && matches(x, q));
+  if (!list.length) return meta + `<div class="empty">${q ? `<b style="font-size:20px;color:var(--fg)">"${esc(S.q)}"는 오늘 목록에 없습니다.</b>` : '해당하는 품목이 없습니다.'}</div>`;
   return meta + list.map(x => card(x, q)).join('');
 }
 function card(x, q) {
-  const st = STATUS[x.status] || STATUS.coming;
-  const where = [['산 곳', x.source], ['차량', x.car], ['표시', x.mark]].filter(([, v]) => v)
-    .map(([k, v]) => `<span><b>${k}</b>${hl(v, q)}</span>`).join('');
-  const fallback = x.status === 'none' ? '오늘 안 내려옵니다. 찾지 않으셔도 됩니다.' : x.status === 'late' ? '늦게 내려옵니다.' : x.status === 'check' ? '사무실에서 확인 중입니다.' : '';
-  return `<article class="res st-${x.status}">
-    <div class="rhead"><div class="rname">${hl(x.name, q)}${x.spec ? `<small>${hl(x.spec, q)}</small>` : ''}</div>
-      <div class="rqty">${esc(x.qty)}${esc(x.unit)}</div></div>
-    <div><span class="pill st-${x.status}">${st.label}</span></div>
-    ${where ? `<div class="where">${where}</div>` : ''}
-    ${x.note || fallback ? `<div class="rnote">${x.note ? hl(x.note, q) : fallback}</div>` : ''}
+  const ok = arrived(x);
+  return `<article class="res ${ok ? 'st-coming' : 'st-none'}">
+    <div class="rhead"><div class="rname">${hl(x.name, q)}${x.spec ? `<small>${esc(x.spec)}</small>` : ''}</div>
+      ${ok ? `<div class="rqty">${esc(x.qty)}${esc(x.unit)} 왔음</div>` : `<div class="rqty" style="color:var(--no)">안 왔음</div>`}</div>
   </article>`;
 }
 
 function officeView() {
   const list = ofDate(S.date);
-  const cnt = k => list.filter(x => x.status === k).length;
+  const noCnt = list.filter(x => !arrived(x)).length;
   return `
-  <div><h1>사무실 등록</h1><p class="sub">오늘 가락에서 산 목록을 올리고, 안 오거나 늦는 품목은 상태를 바꿔 주세요. 현장 폰에 몇 초 안에 반영됩니다.</p></div>
+  <div><h1>사무실 등록</h1><p class="sub">내려온 품목과 수량을 올려 주세요. 안 온 품목은 수량을 0으로 두거나 '안 왔음'에 체크하면 됩니다.</p></div>
   <section class="panel">
     <div class="row between"><h2>목록 올리기</h2>
       <label class="field">날짜<input type="date" data-set="date" value="${esc(S.date)}" style="width:auto"></label></div>
-    <p class="sub" style="margin:0">엑셀에서 표를 복사해 아래에 붙여넣으세요. 첫 줄에 <b>품목·수량·단위·산 곳·차량·표시·상태·메모</b> 같은 제목이 있으면 알아서 맞춥니다. 제목이 없으면 이 순서로 읽습니다.</p>
-    <textarea id="paste" data-paste placeholder="품목&#9;수량&#9;단위&#9;산 곳&#9;차량&#9;표시&#9;메모&#10;깻잎&#9;5&#9;박스&#9;○○청과&#9;1호차&#9;노란 테이프">${esc(S.paste)}</textarea>
+    <p class="sub" style="margin:0">엑셀에서 <b>품목 · 수량 · 단위</b> 칸을 복사해 붙여넣으세요.</p>
+    <textarea id="paste" data-paste placeholder="깻잎&#9;5&#9;박스&#10;쪽파&#9;3&#9;박스&#10;미나리&#9;0&#9;박스">${esc(S.paste)}</textarea>
     <div class="row">
       <button class="btn primary" data-act="paste">붙여넣은 목록 올리기</button>
       <label class="drop">엑셀 파일 고르기<input id="upload" type="file" accept=".xlsx,.xls,.csv"></label>
@@ -302,18 +283,13 @@ function officeView() {
   </section>
   <section class="panel">
     <div class="row between"><h2>${S.date === today() ? '오늘' : esc(S.date)} 목록 ${list.length}개</h2>
-      <div class="counts"><span class="pill st-none">안 옴 ${cnt('none')}</span><span class="pill st-late">늦게 옴 ${cnt('late')}</span><span class="pill st-check">확인 중 ${cnt('check')}</span></div></div>
-    ${list.length ? `<div class="scroll"><table><thead><tr><th>품목</th><th>규격</th><th>수량</th><th>단위</th><th>상태</th><th>산 곳</th><th>차량</th><th>표시</th><th>현장에 보일 메모</th><th></th></tr></thead><tbody>
+      <span class="pill st-none">안 왔음 ${noCnt}</span></div>
+    ${list.length ? `<div class="scroll"><table><thead><tr><th>품목</th><th>온 수량</th><th>단위</th><th>안 왔음</th><th></th></tr></thead><tbody>
     ${list.map(x => `<tr>
       <td class="nm"><input data-f="name" data-id="${x.id}" value="${esc(x.name)}" aria-label="품목"></td>
-      <td class="s"><input data-f="spec" data-id="${x.id}" value="${esc(x.spec)}" aria-label="규격"></td>
-      <td class="q"><input data-f="qty" data-id="${x.id}" value="${esc(x.qty)}" inputmode="decimal" aria-label="수량"></td>
+      <td class="q"><input data-f="qty" data-id="${x.id}" value="${esc(x.qty)}" inputmode="decimal" aria-label="온 수량"></td>
       <td class="q"><input data-f="unit" data-id="${x.id}" value="${esc(x.unit)}" aria-label="단위"></td>
-      <td><select class="st-${x.status}" data-f="status" data-id="${x.id}" aria-label="상태">${Object.entries(STATUS).map(([k, v]) => `<option value="${k}" ${x.status === k ? 'selected' : ''}>${v.label}</option>`).join('')}</select></td>
-      <td class="s"><input data-f="source" data-id="${x.id}" value="${esc(x.source)}" aria-label="산 곳"></td>
-      <td class="q"><input data-f="car" data-id="${x.id}" value="${esc(x.car)}" aria-label="차량"></td>
-      <td class="s"><input data-f="mark" data-id="${x.id}" value="${esc(x.mark)}" aria-label="표시"></td>
-      <td class="s"><input data-f="note" data-id="${x.id}" value="${esc(x.note)}" placeholder="예: 5시 2차로 옴" aria-label="메모"></td>
+      <td><input type="checkbox" data-none="${x.id}" ${x.status === 'none' ? 'checked' : ''} aria-label="${esc(x.name)} 안 왔음" style="width:28px;min-height:28px"></td>
       <td><button class="icon" data-act="rm" data-id="${x.id}" aria-label="${esc(x.name)} 삭제">×</button></td></tr>`).join('')}
     </tbody></table></div>
     <div class="row">${S.confirmClear ? `<button class="btn danger" data-act="clear">이 날짜 목록 전부 삭제</button><button class="btn quiet" data-act="clearno">취소</button>` : `<button class="btn quiet" data-act="clearask">이 날짜 목록 비우기</button>`}</div>`
@@ -329,15 +305,16 @@ document.addEventListener('input', e => {
   if (t.dataset.f && t.dataset.id && t.tagName === 'INPUT') {
     const it = S.items.find(x => x.id === t.dataset.id); if (!it) return;
     saveItem({ ...it, [t.dataset.f]: t.value });
+    if (t.dataset.f === 'qty') { const pill = document.querySelector('.panel .pill.st-none'); if (pill) pill.textContent = '안 왔음 ' + ofDate(S.date).filter(x => !arrived(x)).length; }
   }
 });
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.dataset.set === 'date') { S.date = t.value || today(); S.confirmClear = false; render(true); return; }
   if (t.id === 'upload' && t.files[0]) { handleFile(t.files[0]); t.value = ''; return; }
-  if (t.tagName === 'SELECT' && t.dataset.f === 'status') {
-    const it = S.items.find(x => x.id === t.dataset.id); if (!it) return;
-    saveItem({ ...it, status: t.value }, true); t.className = 'st-' + t.value;
+  if (t.dataset.none) {
+    const it = S.items.find(x => x.id === t.dataset.none); if (!it) return;
+    saveItem({ ...it, status: t.checked ? 'none' : 'coming' }, true); render(true);
   }
 });
 document.addEventListener('click', e => {
@@ -345,7 +322,7 @@ document.addEventListener('click', e => {
   const act = b.dataset.act;
   if (act === 'filter') { S.filter = b.dataset.f; render(true); }
   else if (act === 'paste') handlePaste();
-  else if (act === 'addrow') { saveItem({ id: uid(), date: S.date, seq: Date.now(), name: '새 품목', qty: '', unit: '박스', spec: '', source: '', car: '', mark: '', status: 'coming', note: '' }, true); render(true); }
+  else if (act === 'addrow') { saveItem({ id: uid(), date: S.date, seq: Date.now(), name: '', qty: '', unit: '박스', spec: '', source: '', car: '', mark: '', status: 'coming', note: '' }, true); render(true); }
   else if (act === 'rm') { removeItem(b.dataset.id); render(true); }
   else if (act === 'clearask') { S.confirmClear = true; render(true); }
   else if (act === 'clearno') { S.confirmClear = false; render(true); }
@@ -366,14 +343,8 @@ addEventListener('hashchange', route);
 function startDemo() {
   S.demo = true; S.ready = true;
   const d = today(), t = new Date().toISOString();
-  S.items = [
-    ['깻잎', '2kg', 5, '박스', '서울청과 12번', '1호차', '노란 테이프', 'coming', ''],
-    ['청상추', '4kg', 8, '박스', '동화청과', '1호차', '파란 매직', 'coming', ''],
-    ['쪽파', '4kg', 3, '박스', '대아청과', '2호차', '', 'late', '5시 2차로 옴'],
-    ['대파', '1단', 40, '단', '한국청과', '1호차', '빨간 끈', 'coming', ''],
-    ['미나리', '', 6, '박스', '서울청과', '', '', 'none', '오늘 경매 없음. 결품'],
-    ['적겨자', '2kg', 2, '박스', '중앙청과', '2호차', '', 'check', ''],
-  ].map(([name, spec, qty, unit, source, car, mark, status, note], i) => ({ id: 'ex' + i, date: d, seq: i, name, spec, qty, unit, source, car, mark, status, note, updatedAt: t }));
+  S.items = [['깻잎', 5, '박스'], ['청상추', 8, '박스'], ['쪽파', 3, '박스'], ['대파', 40, '단'], ['미나리', 0, '박스'], ['적겨자', 2, '박스']]
+    .map(([name, qty, unit], i) => ({ id: 'ex' + i, date: d, seq: i, name, qty, unit, spec: '', status: 'coming', updatedAt: t }));
   route();
 }
 async function boot() {
