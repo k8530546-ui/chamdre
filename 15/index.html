@@ -128,9 +128,9 @@ const cho = s => [...s].map(c => { const k = c.charCodeAt(0) - 0xAC00; return k 
 const isCho = s => /^[ㄱ-ㅎ]+$/.test(s);
 function matches(item, q) {
   if (!q) return true;
-  const hay = norm(item.name);
+  const hay = norm(item.name + ' ' + (item.alias || ''));
   if (hay.includes(q)) return true;
-  if (isCho(q)) return cho(norm(item.name)).includes(q);
+  if (isCho(q)) return cho(hay).includes(q);
   return false;
 }
 function hl(text, q) {
@@ -172,51 +172,88 @@ async function removeItem(id) {
 const ofDate = d => S.items.filter(x => x.date === d).sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0) || String(a.name).localeCompare(String(b.name), 'ko'));
 
 /* ---------- 목록 읽기 (엑셀 붙여넣기 / 파일) ---------- */
+/* 매입 입력 프로그램의 [엑셀 내려받기] 파일 / [구매입력 복사] 붙여넣기 / 직접 만든 표 모두 읽음.
+   제목 줄을 찾아 칸을 맞추고, 같은 품목은 수량을 합침 (여러 매입처에서 들어온 깻잎 → 깻잎 합계) */
 const COLS = [
-  ['name', /품목|품명|상품|이름/], ['qty', /수량|개수|박스수|qty/i], ['unit', /단위/], ['spec', /규격|중량|kg/i],
-  ['source', /법인|중도매|매입처|산\s*곳|구매처|출하|상회|청과/], ['car', /차량|호차|차\b|기사/], ['mark', /표시|마크|테이프|스티커|구분/],
-  ['status', /상태|결품|입고/], ['note', /메모|비고|참고/],
+  // 먼저 나온 규칙이 이김: '품목명'이 '품목코드'보다 우선
+  ['name', [/^(이카운트)?\s*품목\s*명$/, /품목\s*명|품명|이카운트\s*품목/, /^품목$|상품명|^이름$/]],
+  ['alias', [/전표\s*표기|표기/]],
+  ['qty', [/^수량$/, /수량|개수|박스수|qty/i]],
+  ['unit', [/^단위$/, /단위/]],
+  ['spec', [/^규격$/, /규격/]],
+  ['date', [/^(매입)?\s*일자$|^날짜$|일자/]],
+  ['status', [/상태|결품/]],
 ];
+const SKIP = /합\s*계|소\s*계|총\s*계/;
 const DEFAULT_ORDER = ['name', 'qty', 'unit'];
 function readStatus(v) {
   const s = norm(v); if (!s) return '';
   return /결품|안옴|안왔|미입고|없음|^x$/.test(s) ? 'none' : 'coming';
 }
-function rowsToItems(rows) {
-  rows = rows.map(r => r.map(c => String(c ?? '').trim())).filter(r => r.some(Boolean));
-  if (!rows.length) return [];
-  let map = null;
-  const head = rows[0];
-  const found = {};
-  head.forEach((h, i) => { for (const [k, re] of COLS) if (!(k in found) && re.test(h)) { found[k] = i; break; } });
-  if ('name' in found) { map = found; rows = rows.slice(1); }
-  else { map = {}; DEFAULT_ORDER.forEach((k, i) => map[k] = i); }
-  const base = Date.now();
-  return rows.map((r, i) => {
-    const g = k => (k in map ? r[map[k]] ?? '' : '');
-    let name = g('name'), qty = g('qty'), unit = g('unit');
-    if (!unit && /^[\d.,]+\s*\D+$/.test(qty)) { const m = qty.match(/^([\d.,]+)\s*(\D+)$/); qty = m[1]; unit = m[2].trim(); }
-    return { id: uid(), date: S.date, seq: base + i, name, qty, unit, spec: g('spec'), source: g('source'), car: g('car'), mark: g('mark'),
-      status: readStatus(g('status')) || 'coming', note: g('note') };
-  }).filter(x => x.name);
+function findHeader(rows) {
+  for (let r = 0; r < Math.min(rows.length, 15); r++) {
+    const head = rows[r].map(h => String(h).replace(/\s+/g, ' ').trim()), map = {};
+    for (const [k, res] of COLS) {
+      for (const re of res) { const i = head.findIndex((h, j) => h && re.test(h) && !Object.values(map).includes(j) && !(k === 'name' && /코드/.test(h))); if (i >= 0) { map[k] = i; break; } }
+    }
+    if ('name' in map && 'qty' in map) return { row: r, map };
+  }
+  return null;
 }
-function addItems(list) {
-  if (!list.length) { toast('읽을 수 있는 품목이 없습니다. 첫 칸에 품목 이름이 있어야 합니다.'); return; }
-  list.forEach(it => saveItem(it, true));
-  toast(list.length + '개 품목을 올렸습니다. 현장 폰에 바로 보입니다.');
+const toNum = v => { const n = parseFloat(String(v ?? '').replace(/,/g, '')); return isFinite(n) ? n : 0; };
+const toYmd = v => {
+  if (typeof v === 'number' && v > 30000 && v < 80000) return ymd(new Date(Math.round((v - 25569) * 864e5) + new Date().getTimezoneOffset() * 6e4));
+  const m = String(v ?? '').match(/(20\d\d)\D?(\d{1,2})\D?(\d{1,2})/); return m ? m[1] + '-' + pad(m[2]) + '-' + pad(m[3]) : '';
+};
+function rowsToItems(rows) {
+  rows = rows.filter(r => r.some(c => String(c ?? '').trim()));
+  if (!rows.length) return { list: [], date: '' };
+  const h = findHeader(rows);
+  let map;
+  if (h) { map = h.map; rows = rows.slice(h.row + 1); }
+  else { map = {}; DEFAULT_ORDER.forEach((k, i) => map[k] = i); }
+  const dates = {}, merged = new Map();
+  rows.forEach(r => {
+    const g = k => (k in map ? String(r[map[k]] ?? '').trim() : '');
+    let name = g('name'), qty = g('qty'), unit = g('unit') || g('spec');
+    if (!name || SKIP.test(name)) return;
+    if (/^[\d.,]+\s*\D+$/.test(qty)) { const m = qty.match(/^([\d.,]+)\s*(\D+)$/); qty = m[1]; if (!unit) unit = m[2].trim(); }
+    if ('date' in map) { const d = toYmd(r[map.date]); if (d) dates[d] = (dates[d] || 0) + 1; }
+    const key = norm(name) + '|' + norm(unit);
+    const cur = merged.get(key) || { name, unit, qty: 0, aliases: [], none: false, n: 0 };
+    cur.qty += toNum(qty); cur.n++;
+    const al = g('alias'); if (al && norm(al) !== norm(name) && !cur.aliases.includes(al)) cur.aliases.push(al);
+    if (readStatus(g('status')) === 'none') cur.none = true;
+    merged.set(key, cur);
+  });
+  const date = Object.keys(dates).sort((a, b) => dates[b] - dates[a])[0] || '';
+  const base = Date.now();
+  const list = [...merged.values()].map((x, i) => ({ id: uid(), date: date || S.date, seq: base + i, name: x.name, alias: x.aliases.join(' '),
+    qty: String(Math.round(x.qty * 100) / 100), unit: x.unit, spec: '', status: x.none ? 'none' : 'coming' }));
+  return { list, date, lines: rows.length };
+}
+// 불러온 날짜의 목록을 통째로 바꿈 → 매입이 늘어 다시 불러와도 중복 없이 최신으로 맞춰짐
+function importItems({ list, date }) {
+  if (!list.length) { toast('품목을 찾지 못했습니다. 품목·수량 칸이 있는 파일인지 확인해 주세요.'); return; }
+  const d = date || S.date;
+  const old = ofDate(d);
+  old.forEach(x => removeItem(x.id));
+  list.forEach(it => { it.date = d; saveItem(it, true); });
+  S.date = d;
+  toast(`${d} 매입 ${list.length}개 품목을 올렸습니다${old.length ? ' (이전 목록은 새 내용으로 바꿈)' : ''}. 현장 폰에 바로 보입니다.`);
 }
 function handlePaste() {
   const rows = S.paste.split(/\r?\n/).map(l => l.includes('\t') ? l.split('\t') : l.split(/\s*,\s*|\s{2,}/));
-  const list = rowsToItems(rows);
-  if (list.length) S.paste = '';
-  addItems(list); render(true);
+  const r = rowsToItems(rows);
+  if (r.list.length) S.paste = '';
+  importItems(r); render(true);
 }
 async function handleFile(f) {
   try {
     if (!window.XLSX) throw new Error('엑셀 도구를 불러오지 못했습니다.');
     const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
-    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
-    addItems(rowsToItems(rows)); render(true);
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '', raw: true });
+    importItems(rowsToItems(rows)); render(true);
   } catch (e) { toast('파일을 읽지 못했습니다: ' + (e.message || e)); }
 }
 
@@ -254,13 +291,13 @@ function findBody() {
     <label class="row" style="gap:6px">날짜 <input type="date" data-set="date" value="${esc(S.date)}" style="width:auto;min-height:36px;padding:4px 8px"></label></div>`;
   if (!all.length) return meta + `<div class="empty">이 날짜에 사무실이 올린 목록이 아직 없습니다.</div>`;
   const list = all.filter(x => (S.filter === 'all' || !arrived(x)) && matches(x, q));
-  if (!list.length) return meta + `<div class="empty">${q ? `<b style="font-size:20px;color:var(--fg)">"${esc(S.q)}"는 오늘 목록에 없습니다.</b>` : '해당하는 품목이 없습니다.'}</div>`;
+  if (!list.length) return meta + `<div class="empty">${q ? `<b style="font-size:24px;color:var(--no)">"${esc(S.q)}" 안 왔음</b><br>오늘 매입전표에 없는 품목입니다.` : '해당하는 품목이 없습니다.'}</div>`;
   return meta + list.map(x => card(x, q)).join('');
 }
 function card(x, q) {
   const ok = arrived(x);
   return `<article class="res ${ok ? 'st-coming' : 'st-none'}">
-    <div class="rhead"><div class="rname">${hl(x.name, q)}${x.spec ? `<small>${esc(x.spec)}</small>` : ''}</div>
+    <div class="rhead"><div class="rname">${hl(x.name, q)}${x.alias ? `<small>${hl(x.alias, q)}</small>` : ''}</div>
       ${ok ? `<div class="rqty">${esc(x.qty)}${esc(x.unit)} 왔음</div>` : `<div class="rqty" style="color:var(--no)">안 왔음</div>`}</div>
   </article>`;
 }
@@ -269,15 +306,17 @@ function officeView() {
   const list = ofDate(S.date);
   const noCnt = list.filter(x => !arrived(x)).length;
   return `
-  <div><h1>사무실 등록</h1><p class="sub">내려온 품목과 수량을 올려 주세요. 안 온 품목은 수량을 0으로 두거나 '안 왔음'에 체크하면 됩니다.</p></div>
+  <div><h1>사무실 등록</h1><p class="sub">매입 입력 프로그램에서 받은 매입전표를 올리면, 같은 품목은 합쳐서 현장 폰에 "몇 개 왔음"으로 보입니다. 전표에 없는 품목은 "안 왔음"으로 나옵니다.</p></div>
   <section class="panel">
-    <div class="row between"><h2>목록 올리기</h2>
+    <div class="row between"><h2>매입전표 불러오기</h2>
       <label class="field">날짜<input type="date" data-set="date" value="${esc(S.date)}" style="width:auto"></label></div>
-    <p class="sub" style="margin:0">엑셀에서 <b>품목 · 수량 · 단위</b> 칸을 복사해 붙여넣으세요.</p>
-    <textarea id="paste" data-paste placeholder="깻잎&#9;5&#9;박스&#10;쪽파&#9;3&#9;박스&#10;미나리&#9;0&#9;박스">${esc(S.paste)}</textarea>
+    <ol class="sub" style="margin:0;padding-left:20px"><li>매입 입력 프로그램에서 <b>[엑셀 내려받기]</b> → 받은 파일을 아래 <b>[매입전표 엑셀 고르기]</b>로 올리기</li>
+      <li>또는 <b>[구매입력 복사]</b> → 아래 칸에 붙여넣기(Ctrl+V) → <b>[붙여넣은 전표 올리기]</b></li></ol>
+    <p class="sub" style="margin:0">매입이 더 들어오면 다시 올리세요. 그 날짜 목록이 최신 내용으로 바뀝니다(중복 안 됨).</p>
+    <textarea id="paste" data-paste placeholder="[구매입력 복사] 한 내용을 여기에 붙여넣기">${esc(S.paste)}</textarea>
     <div class="row">
-      <button class="btn primary" data-act="paste">붙여넣은 목록 올리기</button>
-      <label class="drop">엑셀 파일 고르기<input id="upload" type="file" accept=".xlsx,.xls,.csv"></label>
+      <label class="drop" style="background:var(--accent);border-color:var(--accent);color:var(--accent-fg)">매입전표 엑셀 고르기<input id="upload" type="file" accept=".xlsx,.xls,.csv"></label>
+      <button class="btn" data-act="paste">붙여넣은 전표 올리기</button>
       <button class="btn" data-act="addrow">한 줄 직접 추가</button>
     </div>
   </section>
@@ -328,6 +367,8 @@ document.addEventListener('click', e => {
   else if (act === 'clearno') { S.confirmClear = false; render(true); }
   else if (act === 'clear') { ofDate(S.date).forEach(x => removeItem(x.id)); S.confirmClear = false; render(true); toast('목록을 비웠습니다.'); }
 });
+document.addEventListener('dragover', e => { if (S.view === 'office') e.preventDefault(); });
+document.addEventListener('drop', e => { if (S.view !== 'office') return; e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); });
 document.addEventListener('focusout', () => setTimeout(() => { if (needsRender) render(); }, 50));
 
 function route() {
