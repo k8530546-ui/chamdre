@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>참드레 출고시세표</title><link rel="manifest" href="../manifest.webmanifest"><meta name="theme-color" content="#2c6a4f">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
+<!-- 직원 시세표 사이트(ckaemfp-dayprice)의 화면·카톡용 이미지 모양을 그대로 따옴. 읽기 전용, 어디에도 저장하지 않음. 시세표화면.py가 데이터를 채움 -->
+<style>
+:root{
+  --bg:#eef1ec; --surface:#ffffff; --ink:#17211a; --muted:#5b685f; --line:#d5ddd3;
+  --accent:#1d6b38; --accent-ink:#ffffff; --accent-soft:#e1efe4;
+  --crit:#c0291f; --crit-soft:#fbe7e5; --warn:#a86300; --warn-soft:#fdf0dc; --info:#3f6487; --info-soft:#e6eef6;
+  --ui:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --paper-font:"Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  --p-bg:#ffffff; --p-ink:#111111; --p-line:#ababab; --p-strong:#333333; --p-band:#dff3d6; --p-head:#17692f;
+  --p-title:#18a048; --p-up:#e3141b; --p-down:#1740d8; --p-red:#e0211b; --p-headred:#ff7b7b;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111613; --surface:#1a211c; --ink:#e4ebe5; --muted:#9aa79e; --line:#2d3830;
+  --accent:#5cc27e; --accent-ink:#0b1a10; --accent-soft:#1f3326;
+  --crit:#ff7a6e; --crit-soft:#3a1d1a; --warn:#f0a845; --warn-soft:#3a2c14; --info:#94b6d8; --info-soft:#1c2a38; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111613; --surface:#1a211c; --ink:#e4ebe5; --muted:#9aa79e; --line:#2d3830;
+  --accent:#5cc27e; --accent-ink:#0b1a10; --accent-soft:#1f3326;
+  --crit:#ff7a6e; --crit-soft:#3a1d1a; --warn:#f0a845; --warn-soft:#3a2c14; --info:#94b6d8; --info-soft:#1c2a38; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:14px}
+button{font:inherit;color:inherit}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding-block:10px}
+.brand{font-weight:700;font-size:16px;letter-spacing:-.01em;margin-right:auto;display:flex;align-items:baseline;gap:8px}
+.brand small{font-weight:600;color:var(--warn);font-size:12px;background:var(--warn-soft);padding:2px 8px;border-radius:99px}
+.datebox{font-weight:600;padding:6px 10px;border:1px solid var(--line);border-radius:8px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-weight:600;white-space:nowrap;text-decoration:none;color:var(--ink)}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.sm{padding:4px 9px;font-size:12.5px;border-radius:6px}
+.btn[disabled]{opacity:.45;cursor:default}
+.status{font-size:12px;color:var(--muted);min-width:0}
+.main{display:grid;grid-template-columns:320px minmax(0,1fr);gap:16px;padding-block:16px 40px;align-items:start}
+@media (max-width:980px){.main{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;position:sticky;top:70px;max-height:calc(100vh - 100px);overflow:auto}
+@media (max-width:980px){.panel{position:static;max-height:none}}
+.panel h2{font-size:13px;margin:0 0 10px;letter-spacing:.02em;color:var(--muted);font-weight:600}
+.sum{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.chip{font-size:12px;font-weight:600;padding:3px 9px;border-radius:99px}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.info{background:var(--info-soft);color:var(--info)}
+.chip.ok{background:var(--accent-soft);color:var(--accent)}
+.issues{display:flex;flex-direction:column;gap:6px}
+.issue{display:grid;grid-template-columns:4px 1fr;gap:10px;align-items:stretch;text-align:left;border:1px solid var(--line);border-radius:8px;padding:8px 10px 8px 0;background:var(--surface);cursor:pointer;width:100%}
+.issue:hover{border-color:var(--accent)}
+.issue .bar{border-radius:0 3px 3px 0}
+.issue.warn .bar{background:var(--warn)} .issue.info .bar{background:var(--info)}
+.issue b{display:block;font-size:13px;font-weight:600}
+.issue span{display:block;font-size:12.5px;color:var(--muted);margin-top:2px;line-height:1.45}
+.help{margin-top:16px;padding-top:12px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted);line-height:1.6}
+.stage{min-width:0;display:flex;flex-direction:column;gap:10px}
+.notice{border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.5}
+.notice.warn{background:var(--warn-soft);color:var(--ink)}
+.notice p{margin:0}
+.rowbar{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12.5px;margin-bottom:8px}
+.rowbar .lbl{font-weight:600;margin-right:6px}
+.rowbar .lbl em{font-style:normal;color:var(--muted);font-weight:500}
+.undo-n{color:var(--muted);font-size:12px}
+.scroller{overflow-x:auto;border-radius:6px;-webkit-overflow-scrolling:touch}
+.fit{width:1000px;overflow:hidden}
+.paper{transform-origin:top left}
+.paper{width:1000px;background:var(--p-bg);color:var(--p-ink);font-family:var(--paper-font);box-shadow:0 1px 3px rgba(0,0,0,.12),0 8px 24px rgba(0,0,0,.08)}
+.p-head{background:var(--p-band);display:grid;grid-template-columns:1fr auto;align-items:center;padding:8px 12px 6px;min-height:96px}
+.p-names{text-align:center;padding-left:200px}
+.p-company{font-size:32px;font-weight:900;letter-spacing:-.01em;line-height:1.2}
+.p-title{font-size:24px;font-weight:700;color:var(--p-title);line-height:1.3}
+.p-phones{font-size:15px;font-weight:700;line-height:1.35;text-align:right;white-space:pre-line}
+.paper table{width:1000px;border-collapse:collapse;table-layout:fixed;font-size:12.5px}
+.paper th{background:var(--p-head);color:#fff;height:22px;font-weight:700;border:1px solid #0e4a1f;font-size:12.5px;padding:0}
+.paper th.red{color:var(--p-headred)}
+.paper td{border:1px solid var(--p-line);height:19px;padding:0 4px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:clip;text-align:center}
+.paper td.num,.paper td.chg{text-align:right;font-variant-numeric:tabular-nums}
+.paper td.chg{font-weight:700}
+.paper td.up{color:var(--p-up)} .paper td.down{color:var(--p-down)}
+.paper td.tk{color:var(--p-red)}
+.paper td.grp{border-top:2px solid var(--p-strong)}
+.paper td.s2{border-left:2px solid var(--p-strong)}
+.paper td.pad{background:var(--p-bg)}
+.paper td.f-warn{box-shadow:inset 0 0 0 2px #e6a23c;background:#fffaf0}
+/* 고치기 모드 (2026-11-16 대표님: 시세표를 보면서 직접 고치고 저장) */
+.paper [contenteditable]{outline:none;cursor:text}
+.paper [contenteditable]:hover{background:#f3f8ff}
+.paper [contenteditable]:focus{box-shadow:inset 0 0 0 2px #2f6fde;background:#eef5ff}
+.paper td.edited{background:#e8f6ec}
+.editbar{display:flex;align-items:center;gap:8px}
+.editbar input{padding:6px 9px;border:1px solid var(--line);border-radius:8px;width:110px;font:inherit;background:var(--surface);color:var(--ink)}
+.dirty{color:#c0291f;font-weight:700}
+.paper td.flash{animation:flash 1.2s ease}
+@keyframes flash{0%,40%{background:#ffe58a}100%{background:inherit}}
+.p-notice{color:var(--p-red);font-weight:700;font-size:14px;padding:7px 8px;border-top:1px solid var(--p-line);border-bottom:1px solid var(--p-line)}
+.p-photos{display:grid;grid-template-columns:repeat(3,1fr)}
+.p-slot{border-right:1px solid var(--p-line);border-bottom:1px solid var(--p-line)}
+.p-slot:nth-child(3n){border-right:0}
+.p-img{height:300px;position:relative;background:#fafafa;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.p-img img{width:100%;height:100%;object-fit:cover;display:block}
+.p-cap{height:32px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;border-top:1px solid var(--p-line);padding:0 6px;white-space:nowrap;overflow:hidden}
+.p-sum{border-top:1px solid var(--p-line);background:#f3faef;padding:10px 14px 12px}
+.p-sum-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+.p-sum-h b{font-size:14px;color:#17692f}
+.p-sum-h .st{font-size:12px;color:#555;font-weight:500}
+.p-sum-h .st .u{color:var(--p-up);font-weight:700}.p-sum-h .st .d{color:var(--p-down);font-weight:700}
+.p-sum-t{font-size:13px;line-height:21px;white-space:pre-wrap;min-height:21px}
+.modal{position:fixed;inset:0;z-index:50;background:rgba(10,16,12,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.sheetbox{background:var(--surface);border-radius:14px;max-width:760px;width:100%;max-height:100%;display:flex;flex-direction:column;overflow:hidden}
+.sheetbox header{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.sheetbox header b{margin-right:auto;font-size:15px}
+.sheetbox .imgwrap{overflow:auto;padding:12px;background:var(--bg)}
+.sheetbox .imgwrap img{display:block;width:100%;height:auto;border-radius:4px}
+.sheetbox footer{padding:10px 14px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);line-height:1.5}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:99px;font-size:13px;font-weight:600;z-index:60;max-width:calc(100% - 32px);text-align:center}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="top"><div class="wrap">
+  <div class="brand">참드레 출고시세표 <small id="label">자동 초안 · 직원 확인 전</small></div>
+  <span class="datebox" id="date"></span>
+  <span class="editbar" id="editbar" hidden><input id="who" placeholder="이름" autocomplete="name"><button class="btn primary" id="saveBtn">저장(확정)</button><span id="dirty"></span></span>
+  <button class="btn primary" id="exportBtn">카톡용 이미지 만들기</button>
+  <span class="status" id="status"></span>
+</div></div>
+
+<div class="wrap main">
+  <aside class="panel">
+    <h2>보내기 전 확인</h2>
+    <div class="sum" id="sum"></div>
+    <div class="issues" id="issues"></div>
+    <div class="help" id="help"></div>
+  </aside>
+  <section class="stage">
+    <div class="notice warn" id="topnote"><p>자동으로 만든 <b>초안</b>이에요. 시세표 사이트에는 들어가지 않았어요. 노란 칸은 값이 날마다 많이 흔들리는 품목이라 꼭 확인하세요.</p></div>
+    <div class="rowbar" id="rowbar" hidden></div>
+    <div class="scroller" id="scroller"><div class="fit" id="fit"><div class="paper" id="paper"></div></div></div>
+  </section>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="sheetbox" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <header>
+      <b id="mTitle">카톡용 이미지</b>
+      <button class="btn primary sm" id="mSave">파일로 저장</button>
+      <button class="btn sm" id="mCopy">이미지 복사</button>
+      <button class="btn ghost sm" id="mClose">닫기</button>
+    </header>
+    <div class="imgwrap"><img id="mImg" alt="완성된 시세표 이미지"></div>
+    <footer id="mFoot">저장 버튼이 안 되면 이미지를 오른쪽 클릭해서 ‘이미지 저장’을 누르세요.</footer>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+window.__main = function(){
+"use strict";
+const DATA = window.__DATA;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const md = d => { const [, m, dd] = d.split("-"); return `${+m}/${+dd}`; };
+const isNum = v => typeof v === "number" && isFinite(v);
+const fmt = n => isNum(n) ? n.toLocaleString("ko-KR") : (n ?? "");
+function change(prev, today){
+  if (!isNum(prev) || !isNum(today)) return {t: "", c: ""};
+  if (today === 0) return {t: "-", c: ""};
+  const d = today - prev;
+  if (d > 0) return {t: "▲" + fmt(d), c: "up"};
+  if (d < 0) return {t: "▼" + fmt(-d), c: "down"};
+  return {t: "-변동없음", c: ""};
+}
+let toastT; function toast(msg){ const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600); }
+const S = {date: DATA.date, sheet: DATA.sheet, photos: DATA.photos || {}};
+const SIDES = ["left", "right"];
+function flat(side){
+  const out = []; const gs = S.sheet[side] || [];
+  gs.forEach((g, gi) => {
+    const n = g.items.reduce((a, it) => a + it.rows.length, 0);
+    g.items.forEach((it, ii) => it.rows.forEach((r, ri) => out.push({
+      side, gi, ii, ri, g, it, r, catSpan: (ii === 0 && ri === 0) ? n : 0, itemSpan: ri === 0 ? it.rows.length : 0
+    })));
+  });
+  return out;
+}
+const pathOf = (side, gi, ii, ri, f) => [side, gi, ii, ri, f].join("|");
+const COLW = [47,69,36,62,77,77,64,91, 47,64,36,55,77,78,64,56];
+const HEAD = ["종류","품목명","품위","단위","전일단가","금일단가","등락가","비고"];
+
+function renderPaper(){
+  const sh = S.sheet;
+  const L = flat("left"), R = flat("right"), N = Math.max(L.length, R.length);
+  let h = `<div class="p-head"><div class="p-names"><div class="p-company">${esc(sh.company)}</div><div class="p-title">${esc(sh.title)}</div></div><div class="p-phones">${esc(sh.phones)}</div></div>`;
+  h += `<table><colgroup>${COLW.map(w => `<col style="width:${w}px">`).join("")}</colgroup><thead><tr>`;
+  for (let s = 0; s < 2; s++) HEAD.forEach((t, k) => h += `<th class="${t === "등락가" ? "red" : ""}${s && !k ? " s2" : ""}">${t}</th>`);
+  h += `</tr></thead><tbody>`;
+  for (let k = 0; k < N; k++){
+    h += "<tr>";
+    [L[k], R[k]].forEach((x, s) => {
+      const s2 = s ? " s2" : "";
+      if (!x){ if (k === (s ? R : L).length) h += `<td class="pad grp${s2}" colspan="8"${N - k > 1 ? ` rowspan="${N - k}"` : ""}></td>`; return; }
+      const grp = x.catSpan ? " grp" : "";
+      const cell = (val, cls, span, p) => `<td class="${cls}"${p ? ` data-p="${p}"` : ""}${span > 1 ? ` rowspan="${span}"` : ""}>${esc(val)}</td>`;
+      if (x.catSpan) h += cell(x.g.cat, "cat" + grp + s2, x.catSpan, pathOf(x.side, x.gi, x.ii, x.ri, "cat"));
+      if (x.itemSpan) h += cell(x.it.name, "item" + grp, x.itemSpan, pathOf(x.side, x.gi, x.ii, x.ri, "name"));
+      const r = x.r, c = change(r.prev, r.today);
+      h += cell(r.grade, "grade" + grp + (r.grade === "특" ? " tk" : ""), 0, pathOf(x.side, x.gi, x.ii, x.ri, "grade"));
+      h += cell(r.unit, "unit" + grp, 0, pathOf(x.side, x.gi, x.ii, x.ri, "unit"));
+      h += cell(fmt(r.prev), "num" + grp, 0, pathOf(x.side, x.gi, x.ii, x.ri, "prev"));
+      h += cell(fmt(r.today), "num" + grp + (r._chk ? " f-warn" : ""), 0, pathOf(x.side, x.gi, x.ii, x.ri, "today"));
+      h += `<td class="chg ${c.c}${grp}" data-c="${pathOf(x.side, x.gi, x.ii, x.ri, "")}">${esc(c.t)}</td>`;
+      h += cell(r.note, "note" + grp, 0, pathOf(x.side, x.gi, x.ii, x.ri, "note"));
+    });
+    h += "</tr>";
+  }
+  h += `</tbody></table>`;
+  h += `<div class="p-notice">${esc(sh.notice)}</div>`;
+  const st = stats();
+  h += `<div class="p-sum"><div class="p-sum-h"><b>금일 시세 총평</b><span class="st">${st.n ? `상승 <span class="u">${st.up}</span> · 하락 <span class="d">${st.down}</span> · 보합 ${st.same}` : ""}</span></div><div class="p-sum-t" id="sumText">${esc(sh.summary || "")}</div></div>`;
+  const nslots = Math.max(6, Math.ceil(sh.captions.length / 3) * 3);
+  h += `<div class="p-photos">`;
+  for (let i = 0; i < nslots; i++){
+    const src = S.photos[i];
+    h += `<div class="p-slot"><div class="p-img">${src ? `<img src="${src}" alt="">` : ""}</div><div class="p-cap" data-cap="${i}">${esc(sh.captions[i] || "")}</div></div>`;
+  }
+  h += `</div>`;
+  $("#paper").innerHTML = h;
+  if (DATA.edit) $("#paper").querySelectorAll('td[data-p], .p-cap, #sumText').forEach(el => el.contentEditable = "true");
+  fitText(); fitPaper();
+}
+function fitText(){
+  $("#paper").querySelectorAll("td, .p-cap").forEach(el => {
+    el.style.fontSize = "";
+    let z = parseFloat(getComputedStyle(el).fontSize);
+    while (z > 8.5 && el.scrollWidth > el.clientWidth + 1){ z -= .5; el.style.fontSize = z + "px"; }
+  });
+}
+function fitPaper(){
+  const sc = $("#scroller"), fit = $("#fit"), pp = $("#paper"), w = sc.clientWidth;
+  const z = Math.max(.72, Math.min(1, w / 1000));
+  pp.style.transform = z < 1 ? `scale(${z})` : "";
+  fit.style.width = (1000 * z) + "px";
+  fit.style.height = z < 1 ? (pp.offsetHeight * z) + "px" : "";
+}
+window.addEventListener("resize", fitPaper);
+
+function allRows(){
+  const out = [];
+  SIDES.forEach(side => (S.sheet[side] || []).forEach(g => g.items.forEach(it => it.rows.forEach(r => out.push({cat: g.cat, name: it.name, ...r})))));
+  return out;
+}
+function stats(){
+  const st = {up: 0, down: 0, same: 0, n: 0};
+  for (const r of allRows()){
+    if (!isNum(r.prev) || !isNum(r.today) || r.prev <= 0 || r.today <= 0) continue;
+    st.n++; const d = r.today - r.prev;
+    if (d > 0) st.up++; else if (d < 0) st.down++; else st.same++;
+  }
+  return st;
+}
+
+/* 왼쪽 확인 목록: 흔들림이 큰 줄(확인), 값이 없는 줄 */
+function renderPanel(){
+  const chk = [], miss = [];
+  SIDES.forEach(side => (S.sheet[side] || []).forEach((g, gi) => g.items.forEach((it, ii) => it.rows.forEach((r, ri) => {
+    const p = pathOf(side, gi, ii, ri, "today"), lbl = `${it.name}${r.grade ? " " + r.grade : ""}`;
+    if (r.today === "") miss.push({lbl, p, why: r._why});
+    else if (r._chk) chk.push({lbl, p, why: r._why});
+  }))));
+  $("#sum").innerHTML = `<span class="chip warn">꼭 확인 ${chk.length}</span>` + (miss.length ? `<span class="chip info">값 없음 ${miss.length}</span>` : "") + `<span class="chip ok">${allRows().length}줄</span>`;
+  $("#issues").innerHTML = chk.map(x => `<button class="issue warn" data-p="${x.p}"><i class="bar"></i><div><b>${esc(x.lbl)}</b><span>${esc(x.why)}</span></div></button>`).join("")
+    + miss.map(x => `<button class="issue info" data-p="${x.p}"><i class="bar"></i><div><b>${esc(x.lbl)}</b><span>${esc(x.why || "근거가 없어 비워 둠")}</span></div></button>`).join("");
+  $("#help").innerHTML = esc(DATA.help || "");
+  $("#issues").onclick = e => {
+    const b = e.target.closest(".issue"); if (!b) return;
+    const td = $(`#paper td[data-p="${b.dataset.p}"]`); if (!td) return;
+    td.scrollIntoView({block: "center", behavior: "smooth"});
+    td.classList.remove("flash"); void td.offsetWidth; td.classList.add("flash");
+  };
+}
+
+/* ───────── 카톡용 이미지 (직원 사이트와 같은 그림) ───────── */
+async function ensureFonts(text){
+  try { await Promise.all(["400", "500", "700", "900"].map(w => document.fonts.load(`${w} 14px "Noto Sans KR"`, text))); await document.fonts.ready; } catch {}
+}
+function loadImg(src){ return new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; }); }
+function wrapLines(ctx, text, maxW){
+  const out = [];
+  for (const para of String(text).split("\n")){
+    if (!para){ out.push(""); continue; }
+    let line = "";
+    for (const word of para.split(/(\s+)/)){
+      const test = line + word;
+      if (ctx.measureText(test).width <= maxW){ line = test; continue; }
+      if (line.trim()) { out.push(line.trimEnd()); line = ""; }
+      let w = word.trimStart();
+      while (ctx.measureText(w).width > maxW){ let k = w.length; while (k > 1 && ctx.measureText(w.slice(0, k)).width > maxW) k--; out.push(w.slice(0, k)); w = w.slice(k); }
+      line = w;
+    }
+    out.push(line.trimEnd());
+  }
+  return out;
+}
+async function drawSheet(scale = 2){
+  const sh = S.sheet, W = 1000, F = '"Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif';
+  const L = flat("left"), R = flat("right"), N = Math.max(L.length, R.length);
+  const HH = 96, TH = 22, RH = 19, NH = 32, PH = 300, CH = 32;
+  const nslots = Math.max(6, Math.ceil(sh.captions.length / 3) * 3), prows = nslots / 3;
+  await ensureFonts(JSON.stringify(sh) + "▲▼-변동없음0123456789,종류품목명품위단위전일단가금일단가등락가비고금일시세총평상승하락보합 ·");
+  const meas = document.createElement("canvas").getContext("2d");
+  meas.font = `400 13px ${F}`;
+  const sLines = sh.summary ? wrapLines(meas, sh.summary, W - 28) : [];
+  const st = stats();
+  const SMH = sh.summary ? 34 + sLines.length * 21 + 10 : 0;
+  const H = HH + TH + N * RH + NH + SMH + prows * (PH + CH);
+  const cv = document.createElement("canvas"); cv.width = W * scale; cv.height = Math.ceil(H * scale);
+  const g = cv.getContext("2d"); g.scale(scale, scale);
+  g.fillStyle = "#fff"; g.fillRect(0, 0, W, H);
+  g.textBaseline = "middle";
+  const text = (t, x, y, {size = 12.5, weight = 400, color = "#111", align = "center", maxW} = {}) => {
+    g.font = `${weight} ${size}px ${F}`; g.fillStyle = color; g.textAlign = align;
+    let s = String(t ?? "");
+    if (maxW){ let z = size; while (z > 8.5 && g.measureText(s).width > maxW){ z -= .5; g.font = `${weight} ${z}px ${F}`; }
+      while (s.length > 1 && g.measureText(s).width > maxW) s = s.slice(0, -1); }
+    g.fillText(s, x, y);
+  };
+  const line = (x1, y1, x2, y2, color = "#ababab", w = 1) => { g.strokeStyle = color; g.lineWidth = w; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
+  g.fillStyle = "#dff3d6"; g.fillRect(0, 0, W, HH);
+  const cx = 12 + 200 + (W - 24 - 200 - 230) / 2;
+  text(sh.company, cx, 32, {size: 32, weight: 900});
+  text(sh.title, cx, 74, {size: 24, weight: 700, color: "#18a048"});
+  const ph = String(sh.phones || "").split("\n"); ph.forEach((p, i) => text(p, W - 12, HH / 2 + (i - (ph.length - 1) / 2) * 20, {size: 15, weight: 700, align: "right"}));
+  const X = [0]; COLW.forEach(w => X.push(X[X.length - 1] + w));
+  let y = HH;
+  g.fillStyle = "#17692f"; g.fillRect(0, y, W, TH);
+  for (let k = 0; k < 16; k++){ const t = HEAD[k % 8]; text(t, (X[k] + X[k + 1]) / 2, y + TH / 2 + 1, {size: 12.5, weight: 700, color: t === "등락가" ? "#ff7b7b" : "#fff"}); }
+  for (let k = 1; k < 16; k++) line(X[k] + .5, y, X[k] + .5, y + TH, "#0e4a1f");
+  y += TH;
+  const top = y;
+  [L, R].forEach((rows, s) => {
+    const o = s * 8;
+    rows.forEach((x, k) => {
+      const ry = top + k * RH, r = x.r, c = change(r.prev, r.today);
+      const mid = ry + RH / 2 + 1;
+      const cellText = (col, t, opt = {}) => {
+        const x0 = X[o + col], x1 = X[o + col + 1];
+        if (opt.align === "right") text(t, x1 - 5, opt.y ?? mid, {...opt, maxW: x1 - x0 - 8});
+        else text(t, (x0 + x1) / 2, opt.y ?? mid, {...opt, maxW: x1 - x0 - 6});
+      };
+      if (r._mark){ g.fillStyle = r._mark; g.fillRect(X[o + 5] + 1, ry + 1, X[o + 6] - X[o + 5] - 1, RH - 1); g.fillRect(X[o + 7] + 1, ry + 1, X[o + 8] - X[o + 7] - 1, RH - 1); } // 비교 그림용 (시세표비교그림.py)
+      if (x.catSpan) cellText(0, x.g.cat, {y: ry + x.catSpan * RH / 2 + 1});
+      if (x.itemSpan) cellText(1, x.it.name, {y: ry + x.itemSpan * RH / 2 + 1});
+      cellText(2, r.grade, {color: r.grade === "특" ? "#e0211b" : "#111"});
+      cellText(3, r.unit);
+      cellText(4, fmt(r.prev), {align: "right"});
+      cellText(5, fmt(r.today), {align: "right"});
+      cellText(6, c.t, {align: "right", weight: 700, color: c.c === "up" ? "#e3141b" : c.c === "down" ? "#1740d8" : "#111"});
+      cellText(7, r.note);
+      const yb = ry + RH + .5;
+      const lastOfCat = k === rows.length - 1 || rows[k + 1].catSpan;
+      const lastOfItem = k === rows.length - 1 || rows[k + 1].itemSpan;
+      line(X[o + (lastOfCat ? 0 : lastOfItem ? 1 : 2)], yb, X[o + 8], yb);
+      if (x.catSpan) line(X[o], ry + .5, X[o + 8], ry + .5, "#333", 2);
+    });
+    for (let k = 1; k < 8; k++) line(X[o + k] + .5, top, X[o + k] + .5, top + rows.length * RH);
+  });
+  line(X[8], top, X[8], top + N * RH, "#333", 2);
+  line(0.5, top, 0.5, top + N * RH); line(W - .5, top, W - .5, top + N * RH);
+  y = top + N * RH;
+  line(0, y + .5, W, y + .5, "#333", 1.5);
+  text(sh.notice, 8, y + NH / 2 + 1, {size: 14, weight: 700, color: "#e0211b", align: "left", maxW: W - 16});
+  y += NH; line(0, y + .5, W, y + .5);
+  if (sh.summary){
+    g.fillStyle = "#f3faef"; g.fillRect(0, y + 1, W, SMH - 1);
+    text("금일 시세 총평", 14, y + 20, {size: 14, weight: 700, color: "#17692f", align: "left"});
+    if (st.n){
+      g.font = `700 14px ${F}`; let sx = 14 + g.measureText("금일 시세 총평").width + 12;
+      const part = (t, c, w = 500) => { g.font = `${w} 12px ${F}`; g.fillStyle = c; g.textAlign = "left"; g.fillText(t, sx, y + 20); sx += g.measureText(t).width; };
+      part("상승 ", "#555"); part(String(st.up), "#e3141b", 700); part(" · 하락 ", "#555"); part(String(st.down), "#1740d8", 700); part(` · 보합 ${st.same}`, "#555");
+    }
+    let sy = y + 34 + 21 / 2;
+    for (const ln of sLines){ text(ln, 14, sy, {size: 13, align: "left"}); sy += 21; }
+    y += SMH; line(0, y + .5, W, y + .5);
+  }
+  const cw = W / 3;
+  for (let pr = 0; pr < prows; pr++){
+    for (let k = 0; k < 3; k++){
+      const i = pr * 3 + k, x0 = k * cw;
+      const src = S.photos[i];
+      g.fillStyle = "#fafafa"; g.fillRect(x0, y, cw, PH);
+      if (src){
+        const im = await loadImg(src);
+        if (im){ const sc = Math.max(cw / im.width, PH / im.height), sw = cw / sc, shh = PH / sc;
+          g.drawImage(im, (im.width - sw) / 2, (im.height - shh) / 2, sw, shh, x0, y, cw, PH); }
+      }
+      line(x0, y + PH + .5, x0 + cw, y + PH + .5);
+      text(sh.captions[i] || "", x0 + cw / 2, y + PH + CH / 2 + 1, {size: 13, weight: 700, maxW: cw - 10});
+      if (k) line(x0 + .5, y, x0 + .5, y + PH + CH);
+    }
+    y += PH + CH; line(0, y + .5, W, y + .5);
+  }
+  g.strokeStyle = "#ababab"; g.lineWidth = 1; g.strokeRect(.5, .5, W - 1, H - 1);
+  return cv;
+}
+
+let outBlob = null;
+$("#exportBtn").onclick = async () => {
+  const btn = $("#exportBtn"); btn.disabled = true; btn.textContent = "만드는 중…";
+  try {
+    const cv = await drawSheet(1.6);
+    outBlob = await new Promise(r => cv.toBlob(r, "image/png"));
+    $("#mImg").src = cv.toDataURL("image/png");
+    $("#mTitle").textContent = `${md(S.date)} 카톡용 이미지 (자동 초안)`;
+    $("#modal").hidden = false; $("#mSave").focus();
+  } catch (e){ console.error(e); toast("이미지를 만들지 못했어요"); }
+  finally { btn.disabled = false; btn.textContent = "카톡용 이미지 만들기"; }
+};
+function closeModal(){ $("#modal").hidden = true; }
+$("#mClose").onclick = closeModal;
+$("#modal").addEventListener("click", e => { if (e.target.id === "modal") closeModal(); });
+$("#mSave").onclick = () => {
+  if (!outBlob) return;
+  const a = document.createElement("a"); a.href = URL.createObjectURL(outBlob); a.download = `chamdre_sise_draft_${md(S.date).replace("/", ".")}.png`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); toast("저장했어요 · 다운로드 폴더를 확인하세요");
+};
+$("#mCopy").onclick = async () => {
+  try { await navigator.clipboard.write([new ClipboardItem({"image/png": outBlob})]); toast("복사했어요"); }
+  catch { $("#mFoot").textContent = "이 화면에서는 이미지 복사가 막혀 있어요. 이미지를 오른쪽 클릭해 ‘이미지 복사’를 누르거나 파일로 저장하세요."; }
+};
+
+/* ───────── 고치기 모드 (2026-11-16 대표님): 모든 칸 고치기, 줄 도구, 되돌리기, 「저장(확정)」 ─────────
+   되돌리기: 칸을 고치기 시작할 때마다·줄을 바꿀 때마다 그 전 모습을 남김 (최대 100번). 버튼 또는 Ctrl+Z.
+   자동값으로: 고르고 있는 줄의 금일단가를 8시 자동값으로 되돌림. */
+let dirty = false;
+const U = [];                 // 되돌리기 기록 (시세표 전체의 JSON)
+let 칸시작 = null;            // 지금 고치는 칸 — 첫 글자를 칠 때 한 번만 기록
+function setDirty(v){ dirty = v; $("#dirty").innerHTML = v ? '<span class="dirty">저장 안 됨</span>' : ""; }
+function snapshot(){ U.push(JSON.stringify(S.sheet)); if (U.length > 100) U.shift(); }
+const parseNum = t => { const d = String(t).replace(/[^\d]/g, ""); return d ? +d : ""; };
+function setByPath(p, text){
+  const [side, gi, ii, ri, f] = p.split("|"); const g = S.sheet[side][+gi];
+  if (f === "cat"){ g.cat = text.trim(); return null; }
+  if (f === "name"){ g.items[+ii].name = text.trim(); return null; }
+  const r = g.items[+ii].rows[+ri];
+  r[f] = (f === "prev" || f === "today") ? parseNum(text) : text.trim();
+  return r;
+}
+function keyed(fn){   // 열쇠 = 품목|품위|몇째 (단가확정.py 줄들()과 같은 순서)
+  const cnt = {};
+  SIDES.forEach(side => (S.sheet[side] || []).forEach(g => g.items.forEach(it => it.rows.forEach(r => {
+    const k = `${String(it.name).trim()}|${String(r.grade).trim()}`; cnt[k] = (cnt[k] || 0) + 1; fn(`${k}|${cnt[k]}`, r);
+  }))));
+}
+function cleanSheet(){   // 저장용: 화면에서만 쓰는 표시(_chk, _why, _auto)를 뺌
+  return JSON.parse(JSON.stringify(S.sheet, (k, v) => k.startsWith("_") ? undefined : v));
+}
+let sel = null, 전체선택 = null;
+function 고르기(el){ const s = getSelection(), rg = document.createRange(); rg.selectNodeContents(el); s.removeAllRanges(); s.addRange(rg); }
+function renderRowbar(){
+  const bar = $("#rowbar");
+  const g = sel && S.sheet[sel.side]?.[sel.gi], it = g?.items[sel.ii], r = it?.rows[sel.ri];
+  if (!DATA.edit){ bar.hidden = true; return; }
+  bar.hidden = false;
+  const auto = r && isNum(r._auto) ? `<button class="btn sm" data-act="auto" title="이 줄 금일단가를 8시 자동값(${fmt(r._auto)})으로">자동값으로 ${fmt(r._auto)}</button>` : "";
+  bar.innerHTML = (r ? `<span class="lbl">${esc(it.name || "(품목명 없음)")} <em>${esc(r.grade || "")} · ${sel.side === "left" ? "왼쪽" : "오른쪽"} ${esc(g.cat || "")}</em></span>
+    <button class="btn sm" data-act="add-row">＋ 품위 줄</button>
+    <button class="btn sm" data-act="add-item">＋ 품목</button>
+    <button class="btn sm" data-act="add-group">＋ 종류</button>
+    <button class="btn sm" data-act="up" title="품목을 위로">↑ 위로</button>
+    <button class="btn sm" data-act="down" title="품목을 아래로">↓ 아래로</button>
+    <button class="btn sm" data-act="del-row">줄 삭제</button>
+    <button class="btn sm" data-act="del-item">품목 삭제</button>${auto}` : `<span class="lbl"><em>칸을 누르면 줄 도구가 나와요</em></span>`)
+    + `<button class="btn sm" data-act="undo" ${U.length ? "" : "disabled"} title="Ctrl+Z">↶ 되돌리기</button><span class="undo-n">${U.length ? U.length + "번 되돌릴 수 있음" : ""}</span>`;
+}
+function cleanup(){
+  for (const side of SIDES){
+    S.sheet[side].forEach(g => g.items = g.items.filter(it => it.rows.length));
+    S.sheet[side] = S.sheet[side].filter(g => g.items.length);
+  }
+}
+function rerender(focusP){
+  renderPaper(); renderPanel(); renderRowbar();
+  if (focusP){ const td = $(`#paper td[data-p="${focusP}"]`); if (td) setTimeout(() => { td.focus(); 칸시작 = td; 고르기(td); }, 0); }
+}
+function structural(fn, focusField){
+  if (!sel) return; snapshot();
+  const res = fn(sel); cleanup(); setDirty(true);
+  sel = res && S.sheet[res.side]?.[res.gi]?.items[res.ii]?.rows[res.ri] ? res : null;
+  rerender(sel ? pathOf(sel.side, sel.gi, sel.ii, sel.ri, focusField || "grade") : null);
+}
+const newRow = (grade = "", unit = "") => ({grade, unit, prev: "", today: "", note: ""});
+const ACTS = {
+  "add-row": () => structural(s => { const it = S.sheet[s.side][s.gi].items[s.ii]; const cur = it.rows[s.ri]; it.rows.splice(s.ri + 1, 0, newRow(cur.grade === "특" ? "상" : "")); return {...s, ri: s.ri + 1}; }),
+  "add-item": () => structural(s => { const g = S.sheet[s.side][s.gi]; g.items.splice(s.ii + 1, 0, {name: "새 품목", rows: [newRow("특"), newRow("상")]}); return {...s, ii: s.ii + 1, ri: 0}; }, "name"),
+  "add-group": () => structural(s => { S.sheet[s.side].splice(s.gi + 1, 0, {cat: "새 종류", items: [{name: "새 품목", rows: [newRow("특"), newRow("상")]}]}); return {side: s.side, gi: s.gi + 1, ii: 0, ri: 0}; }, "cat"),
+  "up": () => structural(s => { const g = S.sheet[s.side][s.gi]; if (s.ii > 0){ [g.items[s.ii - 1], g.items[s.ii]] = [g.items[s.ii], g.items[s.ii - 1]]; return {...s, ii: s.ii - 1, ri: 0}; }
+      if (s.gi > 0){ const it = g.items.splice(s.ii, 1)[0]; const pg = S.sheet[s.side][s.gi - 1]; pg.items.push(it); return {...s, gi: s.gi - 1, ii: pg.items.length - 1, ri: 0}; } return s; }),
+  "down": () => structural(s => { const g = S.sheet[s.side][s.gi]; if (s.ii < g.items.length - 1){ [g.items[s.ii + 1], g.items[s.ii]] = [g.items[s.ii], g.items[s.ii + 1]]; return {...s, ii: s.ii + 1, ri: 0}; }
+      const ng = S.sheet[s.side][s.gi + 1]; if (ng){ const it = g.items.splice(s.ii, 1)[0]; ng.items.unshift(it); const empty = !g.items.length; return {...s, gi: empty ? s.gi : s.gi + 1, ii: 0, ri: 0}; } return s; }),
+  "del-row": () => structural(s => { S.sheet[s.side][s.gi].items[s.ii].rows.splice(s.ri, 1); toast("줄을 지웠어요 · 되돌리기 가능"); return null; }),
+  "del-item": () => structural(s => { S.sheet[s.side][s.gi].items.splice(s.ii, 1); toast("품목을 지웠어요 · 되돌리기 가능"); return null; }),
+  "auto": () => { if (!sel) return; const r = S.sheet[sel.side][sel.gi].items[sel.ii].rows[sel.ri]; if (!isNum(r._auto)) return;
+      snapshot(); r.today = r._auto; setDirty(true); rerender(pathOf(sel.side, sel.gi, sel.ii, sel.ri, "today")); toast(`자동값 ${fmt(r._auto)}으로 되돌렸어요`); },
+  "undo": () => { const v = U.pop(); if (!v){ toast("더 되돌릴 것이 없어요"); return; }
+      const keep = sel; S.sheet = JSON.parse(v); 칸시작 = null; setDirty(true);
+      sel = keep && S.sheet[keep.side]?.[keep.gi]?.items[keep.ii]?.rows[keep.ri] ? keep : null;
+      document.activeElement?.blur?.(); rerender(); toast("되돌렸어요"); },
+};
+if (DATA.edit){
+  $("#editbar").hidden = false;
+  try { $("#who").value = localStorage.getItem("chamdre-who") || ""; } catch {}
+  const paper = $("#paper");
+  paper.addEventListener("input", e => {
+    const el = e.target;
+    if (칸시작 === el){ snapshot(); 칸시작 = null; renderRowbar(); }   // 이 칸을 고치기 전 모습을 한 번 남김
+    if (el.dataset.p){
+      const p = el.dataset.p, f = p.split("|")[4], r = setByPath(p, el.textContent);
+      if (r && (f === "today" || f === "prev")){
+        const c = change(r.prev, r.today), td = paper.querySelector(`td[data-c="${p.replace(/(today|prev)$/, "")}"]`);
+        if (td){ td.textContent = c.t; td.className = td.className.replace(/\b(up|down)\b/g, "").trim() + (c.c ? " " + c.c : ""); }
+      }
+      if (r && f === "grade") el.classList.toggle("tk", r.grade === "특");
+      el.classList.add("edited");
+    } else if (el.dataset.cap !== undefined) S.sheet.captions[+el.dataset.cap] = el.textContent.trim();
+    else if (el.id === "sumText") S.sheet.summary = el.innerText.trim();
+    setDirty(true);
+  });
+  paper.addEventListener("focusin", e => {
+    const el = e.target; if (!el.isContentEditable) return;
+    칸시작 = el;
+    if (el.dataset.p){ const [side, gi, ii, ri] = el.dataset.p.split("|"); sel = {side, gi: +gi, ii: +ii, ri: +ri}; renderRowbar(); }
+    전체선택 = el;
+    requestAnimationFrame(() => 고르기(el));
+  });
+  // 칸을 누르면 안의 값을 통째로 골라 둠 → 새로 치면 바뀜 (마우스를 뗄 때 다시 한 번: 클릭이 고른 것을 풀어 버려서)
+  paper.addEventListener("mouseup", () => { const el = 전체선택; 전체선택 = null; if (el && document.activeElement === el) setTimeout(() => 고르기(el)); });
+  paper.addEventListener("focusout", e => {
+    const el = e.target; if (칸시작 === el) 칸시작 = null;
+    if (el.dataset.p && /\|(today|prev)$/.test(el.dataset.p)){ const [side, gi, ii, ri, f] = el.dataset.p.split("|"); el.textContent = fmt(S.sheet[side][+gi].items[+ii].rows[+ri][f]); }
+  });
+  paper.addEventListener("keydown", e => {
+    const el = e.target; if (!el.dataset.p) return;
+    if (["Enter", "ArrowDown", "ArrowUp"].includes(e.key)){
+      e.preventDefault();
+      const [side, , , , f] = el.dataset.p.split("|");
+      const all = [...paper.querySelectorAll(`td[data-p^="${side}|"]`)].filter(x => x.dataset.p.endsWith("|" + f)), i = all.indexOf(el);
+      const nx = all[i + (e.key === "ArrowUp" || (e.key === "Enter" && e.shiftKey) ? -1 : 1)]; if (nx) nx.focus(); else el.blur();
+    }
+    if (e.key === "Escape") el.blur();
+  });
+  document.addEventListener("keydown", e => {   // Ctrl+Z = 되돌리기 (칸 안에서도)
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z" && !(e.target.closest && e.target.closest("input"))){ e.preventDefault(); ACTS.undo(); }
+  });
+  document.addEventListener("click", e => { const a = e.target.closest("[data-act]"); if (a && ACTS[a.dataset.act]){ e.preventDefault(); ACTS[a.dataset.act](); } });
+  $("#saveBtn").onclick = async () => {
+    const 이름 = $("#who").value.trim();
+    if (!이름){ toast("이름을 적어 주세요"); $("#who").focus(); return; }
+    try { localStorage.setItem("chamdre-who", 이름); } catch {}
+    document.activeElement?.blur?.();
+    const 값 = {}, 비고 = {};
+    keyed((k, r) => { if (isNum(r.today) && r.today > 0) 값[k] = r.today; if (r.note) 비고[k] = r.note; });
+    const btn = $("#saveBtn"); btn.disabled = true;
+    try {
+      const 보낼 = {이름, 값, 비고, 총평: S.sheet.summary || "", 설명: S.sheet.captions, sheet: cleanSheet()};
+      const res = window.__save ? await window.__save(S.date, 보낼)      // 인터넷판 (수파베이스)
+        : await fetch("/sheet/save?date=" + S.date, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(보낼)});
+      if (!res.ok) throw new Error(await res.text());
+      setDirty(false); $("#paper").querySelectorAll(".edited").forEach(x => x.classList.remove("edited"));
+      $("#label").textContent = `확정본 · ${이름} ${new Date().toTimeString().slice(0, 5)}`;
+      toast(`저장했어요 (${Object.keys(값).length}줄)` + (await res.text() === "ok+layout" ? " · 품목 배치도 내일부터 이대로" : ""));
+    } catch (err){ toast("저장 실패: " + err.message); }
+    finally { btn.disabled = false; }
+  };
+  window.addEventListener("beforeunload", e => { if (dirty){ e.preventDefault(); e.returnValue = ""; } });
+  renderRowbar();
+}
+
+$("#date").textContent = S.date;
+if (DATA.label) $("#label").textContent = DATA.label;          // 확정본일 때 (시황편집.py /sheet)
+if (DATA.topnote) $("#topnote").innerHTML = `<p>${esc(DATA.topnote)}</p>`;
+$("#status").textContent = DATA.status || "";
+renderPaper(); renderPanel();
+if (document.fonts) document.fonts.ready.then(() => { fitText(); fitPaper(); });
+// 시세표화면.py가 엣지(화면 없이)로 열어 PNG 파일을 뽑을 때: 주소 끝 #png
+if (location.hash === "#png") drawSheet(1.6).then(cv => { const p = document.createElement("pre"); p.id = "pngout"; p.textContent = cv.toDataURL("image/png"); document.body.appendChild(p); });
+};
+</script>
+<!-- 인터넷판 12 참드레 출고시세표: 로그인 → 수파베이스에서 그날 시세표를 읽어 화면을 띄우고, 저장은 수파베이스로.
+     자료는 Z:\참드레 출고시세표\클라우드.py 가 10분마다 올리고, 여기서 저장한 확정을 그 폴더로 가져감 (2026-11-16) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script><script src="../js/cloud-config.js"></script>
+<script src="../js/pc-cloud.js"></script>
+<style>
+.web-msg{max-width:520px;margin:60px auto;padding:20px;background:var(--surface,#fff);border:1px solid var(--line,#ddd);border-radius:12px;font-size:15px;line-height:1.6}
+.web-date{font:inherit;font-weight:700;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+.web-home{font-size:13px;color:var(--muted);text-decoration:none;margin-right:4px}
+</style>
+<script>
+(async () => {
+  const 앱 = "참드레 출고시세표";
+  const C = window.__pcCloud;
+  const 알림 = t => { document.querySelector(".wrap.main")?.remove(); const d = document.createElement("div"); d.className = "web-msg"; d.innerHTML = t; document.body.appendChild(d); };
+  if (!C){ 알림("클라우드 연결 정보가 없어요."); return; }
+  await C.start();
+  let 목록 = [];
+  try { 목록 = ((await C.rpc("pc_list", {p_path: 앱 + "/sheets"})) || []).filter(x => x[1] === "file").map(x => x[0].replace(/\.json$/, "")).sort().reverse(); }
+  catch (e){ 알림("시세표 목록을 못 읽었어요: " + (e.message || e) + "<br>로그인한 이메일이 프로그램 명단(pc_members)에 있는지 확인하세요."); return; }
+  const 날짜 = new URLSearchParams(location.search).get("date") || 목록[0];
+  if (!날짜){ 알림("아직 올라온 시세표가 없어요. 회사 PC에서 자동으로 올라갑니다 (10분마다)."); return; }
+  const r = await C.rpc("pc_read", {p_path: `${앱}/sheets/${날짜}.json`, p_head: false});
+  if (!r){ 알림(`${날짜} 시세표가 아직 없어요. <a href="?">가장 최근 것 보기</a>`); return; }
+  const d = JSON.parse(r.body);
+  // 열쇠 = 품목|품위|몇째 (단가확정.py 줄들()과 같은 순서)
+  const 줄들 = (sh, fn) => { const cnt = {}; ["left", "right"].forEach(s => (sh[s] || []).forEach(g => g.items.forEach(it => it.rows.forEach(row => {
+    const k = `${String(it.name).trim()}|${String(row.grade).trim()}`; cnt[k] = (cnt[k] || 0) + 1; fn(`${k}|${cnt[k]}`, row); })))); };
+  // 회사 PC가 아직 안 가져간, 여기서 더 나중에 저장한 확정이 있으면 그걸 보여 줌
+  const c = await C.rpc("pc_read", {p_path: `${앱}/확정/${날짜}.json`, p_head: false});
+  if (c){
+    const k = JSON.parse(c.body);
+    if ((k.저장시각 || "") > (d.확정시각 || "") && k.sheet){
+      const 자동 = {}; 줄들(d.sheet, (key, row) => { if (typeof row._auto === "number") 자동[key] = row._auto; });
+      const photos = d.sheet.captions; d.sheet = Object.assign({}, d.sheet, k.sheet); if (!d.sheet.captions) d.sheet.captions = photos;
+      줄들(d.sheet, (key, row) => { if (key in 자동) row._auto = 자동[key]; });
+      d.label = `확정본 · ${k.이름} ${String(k.저장시각).slice(11)} (인터넷판)`;
+    }
+  }
+  d.edit = true;
+  d.help = "금일단가·비고·총평·사진 설명 등 칸을 눌러 바로 고치세요 (Enter·↓ 다음 줄, ↑ 윗줄, Ctrl+Z 되돌리기). 다 고치면 위에 이름을 적고 「저장(확정)」. 저장한 값은 몇 분 안에 회사 PC로 가서 확정본·다음 날 전일단가가 됩니다.";
+  window.__DATA = d;
+  const 지금 = () => { const n = new Date(), p = x => String(x).padStart(2, "0"); return `${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())} ${p(n.getHours())}:${p(n.getMinutes())}`; };
+  window.__save = async (date, 보낼) => {
+    const 글 = JSON.stringify(Object.assign({}, 보낼, {날짜: date, 저장시각: 지금(), 어디서: "인터넷판"}));
+    const 크기 = new TextEncoder().encode(글).length;
+    await C.rpc("pc_write", {p_path: `${앱}/확정/${date}.json`, p_body: 글, p_is_text: true, p_size: 크기});
+    await C.rpc("pc_write", {p_path: `${앱}/확정기록/${date}_${지금().slice(11).replace(":", "")}${String(new Date().getSeconds()).padStart(2, "0")}.json`, p_body: 글, p_is_text: true, p_size: 크기}).catch(() => {});
+    return {ok: true, text: async () => "ok"};
+  };
+  window.__main();
+  // 날짜 고르기 (올라온 날짜 목록)
+  const box = document.getElementById("date");
+  if (box && 목록.length){
+    const sel = document.createElement("select"); sel.className = "web-date"; sel.title = "날짜 바꾸기";
+    sel.innerHTML = 목록.map(x => `<option${x === 날짜 ? " selected" : ""}>${x}</option>`).join("");
+    sel.onchange = () => { location.search = "?date=" + sel.value; };
+    box.replaceWith(sel);
+  }
+  const brand = document.querySelector(".brand");
+  if (brand){ const a = document.createElement("a"); a.className = "web-home"; a.href = C.home; a.textContent = "← 목록"; brand.prepend(a); }
+  document.title = `참드레 출고시세표 ${날짜.slice(5)}`;
+})();
+</script>
+
+</body>
+</html>
